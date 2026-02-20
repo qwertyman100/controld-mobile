@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Wifi,
   ExternalLink,
@@ -239,14 +239,43 @@ function StepTokenGuide({ onReady, onBack }) {
   );
 }
 
+// ── Token detection helper ──────────────────────────────────────────────────
+// Returns true if the string looks like an API token rather than a domain or
+// random text. Heuristic: long enough, no spaces, no valid domain TLD pattern.
+function looksLikeToken(text) {
+  if (!text) return false;
+  const t = text.trim();
+  // Must be at least 20 chars, no whitespace
+  if (t.length < 20 || /\s/.test(t)) return false;
+  // Must not look like a URL or domain (contains ://, or ends with a known TLD)
+  if (t.includes('://')) return false;
+  if (/\.[a-z]{2,}$/i.test(t)) return false;
+  // Must be alphanumeric with optional dashes, underscores, or dots
+  if (!/^[a-zA-Z0-9._-]+$/.test(t)) return false;
+  return true;
+}
+
 // ── Step 4: Token entry ─────────────────────────────────────────────────────
 // Paste/type the API token. Validates against the ControlD API on submit.
+// On mount, checks the clipboard for something that looks like a token and
+// offers a one-tap "Use from clipboard" button if found.
 // Used by both the guided flow and the "I already have a token" shortcut.
 function StepEnterToken({ onBack, showBack }) {
   const { login, authError } = useAuth();
   const [token, setToken] = useState('');
   const [showToken, setShowToken] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [clipboardToken, setClipboardToken] = useState(null);
+
+  // Check clipboard on mount for a token-like string
+  useEffect(() => {
+    if (!navigator.clipboard?.readText) return;
+    navigator.clipboard.readText()
+      .then((text) => {
+        if (looksLikeToken(text)) setClipboardToken(text.trim());
+      })
+      .catch(() => {}); // Permission denied — degrade silently
+  }, []);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -277,6 +306,23 @@ function StepEnterToken({ onBack, showBack }) {
       </p>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        {/* Clipboard token suggestion — shown if a token-like string is detected */}
+        {clipboardToken && !token && (
+          <button
+            type="button"
+            onClick={() => { setToken(clipboardToken); setClipboardToken(null); }}
+            className="w-full flex items-center gap-3 bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3 text-left transition-colors hover:bg-green-500/20"
+          >
+            <Copy size={16} className="text-green-500 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-green-400">Use token from clipboard</p>
+              <p className="text-xs text-slate-500 truncate mt-0.5">
+                {clipboardToken.slice(0, 6)}{'•'.repeat(8)}{clipboardToken.slice(-4)}
+              </p>
+            </div>
+          </button>
+        )}
+
         {/* Token input with show/hide toggle */}
         <div className="relative">
           <input
