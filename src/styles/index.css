@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+/* Dark mode triggered by .dark class on <html> */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Suppress tap flash on mobile */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent overscroll bounce — makes the app feel native */
+body {
+  overscroll-behavior: none;
+  overflow: hidden;
+  height: 100dvh;
+}
+
+#root {
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Safe area insets for devices with notches / home indicators */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Smooth scrolling for lists */
+.scroll-area {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Swipe-to-delete animation support */
+.rule-row {
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.rule-row.deleting {
+  transform: translateX(-100%);
+  opacity: 0;
+}
+
+/* Slide-down animation for clipboard banner */
+@keyframes slideDown {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.slide-down {
+  animation: slideDown 0.25s ease forwards;
+}
+
+/* Toast slide-up animation */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%) translateX(-50%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) translateX(-50%);
+    opacity: 1;
+  }
+}
+
+.toast-enter {
+  animation: slideUp 0.25s ease forwards;
+}
+
+/* Pulse skeleton loader */
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.skeleton {
+  animation: pulse 1.5s ease-in-out infinite;
+}
