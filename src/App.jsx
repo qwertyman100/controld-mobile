@@ -3,7 +3,7 @@ import { useAuth } from './context/AuthContext';
 import { useClipboard } from './hooks/useClipboard';
 import { RULE_ACTION } from './api/controld';
 
-import LoginScreen from './components/LoginScreen';
+import OnboardingFlow from './components/OnboardingFlow';
 import Layout from './components/Layout';
 import ClipboardBanner from './components/ClipboardBanner';
 import ProfileList from './components/ProfileList';
@@ -94,8 +94,8 @@ export default function App() {
   // Show loading splash while auto-validating stored token
   if (loading) return <Splash />;
 
-  // Not authenticated — show login
-  if (!token) return <LoginScreen />;
+  // Not authenticated — show onboarding/login flow
+  if (!token) return <OnboardingFlow />;
 
   const banner =
     clipboardDomain && activeProfile ? (
