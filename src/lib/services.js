@@ -39,3 +39,10 @@ export function buildServicePayload(action, viaLocation) {
     default: throw new Error(`Unknown service action: ${action}`);
   }
 }
+
+/** A service's unlock_location IS a proxy PK; find that proxy for the default redirect target. */
+export function resolveDefaultLocation(service, proxies) {
+  const code = service?.unlock_location;
+  if (!code) return null;
+  return (proxies ?? []).find((p) => p.PK === code) ?? null;
+}

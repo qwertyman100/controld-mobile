@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { mergeServiceState, filterServices, buildServicePayload } from './services.js';
+import {
+  mergeServiceState,
+  filterServices,
+  buildServicePayload,
+  resolveDefaultLocation,
+} from './services.js';
 
 const catalog = [
   { PK: 'netflix', name: 'Netflix', category: 'video', unlock_location: 'JFK', warning: '' },
@@ -76,5 +81,26 @@ describe('buildServicePayload', () => {
   });
   it('throws on an unknown action', () => {
     expect(() => buildServicePayload('spoof')).toThrow();
+  });
+});
+
+describe('resolveDefaultLocation', () => {
+  const proxies = [
+    { PK: 'JFK', city: 'New York', country_name: 'United States' },
+    { PK: 'SYD', city: 'Sydney', country_name: 'Australia' },
+  ];
+
+  it('returns the proxy whose PK matches the service unlock_location', () => {
+    expect(resolveDefaultLocation({ unlock_location: 'SYD' }, proxies))
+      .toMatchObject({ PK: 'SYD', city: 'Sydney' });
+  });
+  it('returns null when unlock_location is empty', () => {
+    expect(resolveDefaultLocation({ unlock_location: '' }, proxies)).toBeNull();
+  });
+  it('returns null when no proxy matches', () => {
+    expect(resolveDefaultLocation({ unlock_location: 'ZZZ' }, proxies)).toBeNull();
+  });
+  it('returns null for a service with no unlock_location', () => {
+    expect(resolveDefaultLocation({}, proxies)).toBeNull();
   });
 });
