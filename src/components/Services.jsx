@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { RefreshCw, AlertCircle, ChevronDown, ChevronRight, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -11,6 +11,37 @@ const PILL = {
   bypass: 'bg-green-100 text-green-700',
   redirect: 'bg-blue-100 text-blue-700',
 };
+
+// ── A single service row ───────────────────────────────────────────────────
+// Hoisted to module scope (mirrors FilterRow in Filters.jsx) so it doesn't
+// get redefined - and thus remounted - on every Services() render. PILL is
+// already a module-level constant, so Row can close over it directly without
+// needing it threaded through as a prop.
+function Row({ service, onTap }) {
+  return (
+    <button
+      onClick={() => onTap(service)}
+      className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-slate-700/40 text-left"
+    >
+      <span className="flex-1 text-sm text-slate-800 dark:text-slate-200">{service.name}</span>
+      <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${service.action ? PILL[service.action] : 'bg-slate-200 text-slate-400'}`}>
+        {service.action ? service.action[0].toUpperCase() + service.action.slice(1) : 'Set'} ›
+      </span>
+    </button>
+  );
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────
+// Shared by the initial catalog load AND the first-search full-catalog sweep,
+// so search never flashes an empty "no results" state while the background
+// fetch is still running (see searchLoading below).
+function ServicesSkeleton() {
+  return (
+    <div className="p-4 flex flex-col gap-3">
+      {[1, 2, 3].map((i) => <div key={i} className="skeleton h-14 rounded-xl bg-slate-200 dark:bg-slate-800" />)}
+    </div>
+  );
+}
 
 export default function Services({ profile }) {
   const { token } = useAuth();
@@ -66,21 +97,44 @@ export default function Services({ profile }) {
     if (willOpen) await loadCategory(catPK);
   }
 
-  // On first search, fetch every category once and cache it.
+  // Guards the first-search full-catalog sweep below against re-entrancy.
+  // `allLoaded` only flips true after the awaited Promise.all resolves, and
+  // `query` (a dep of that effect) changes on every keystroke - so without a
+  // *synchronous* flag, each keystroke typed while the sweep is still in
+  // flight would fire off another full round of per-category fetches. A ref
+  // (not state) is required here because it must be readable/settable
+  // synchronously, before the first `await`, with no extra render in between.
+  const searchSweepInFlight = useRef(false);
+
+  // On first search, fetch every not-yet-cached category once and cache it.
   useEffect(() => {
     if (!query || allLoaded || !categories.length) return;
+    if (searchSweepInFlight.current) return; // a sweep is already running - bail
+    searchSweepInFlight.current = true;
     (async () => {
-      const entries = await Promise.all(
-        categories.map(async (c) => {
-          if (catCache[c.PK]) return [c.PK, catCache[c.PK]];
-          const body = await api.getServiceCategory(token, c.PK).catch(() => ({}));
-          return [c.PK, toArray(body, 'services')];
-        })
-      );
-      setCatCache((prev) => ({ ...Object.fromEntries(entries), ...prev }));
-      setAllLoaded(true);
+      try {
+        const toFetch = categories.filter((c) => !catCache[c.PK]);
+        const entries = await Promise.all(
+          toFetch.map(async (c) => {
+            const body = await api.getServiceCategory(token, c.PK).catch(() => ({}));
+            return [c.PK, toArray(body, 'services')];
+          })
+        );
+        setCatCache((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+        setAllLoaded(true);
+      } finally {
+        searchSweepInFlight.current = false;
+      }
     })();
   }, [query, allLoaded, categories, catCache, token]);
+
+  // Derived (not stateful) so it's correct from the very first render that
+  // has `query` set - a `useState` toggled inside the effect above would lag
+  // one render behind (state set only after the effect runs post-paint),
+  // reopening exactly the false-"No apps match" flash this is meant to
+  // prevent. `allLoaded` starts false and only flips true once the sweep
+  // above fully completes, so this is true for the whole in-flight window.
+  const searchLoading = Boolean(query) && !allLoaded;
 
   const withState = useCallback(
     (list) => mergeServiceState(list, configured),
@@ -89,8 +143,14 @@ export default function Services({ profile }) {
 
   const searchResults = useMemo(() => {
     if (!query) return null;
-    const all = Object.values(catCache).flat();
-    return withState(filterServices(all, query));
+    // A service can appear in more than one category (e.g. a redirect target
+    // listed under both "Streaming" and "Social"); de-dupe by PK so it can't
+    // render twice / collide on the React `key`.
+    const byPk = new Map();
+    for (const s of Object.values(catCache).flat()) {
+      if (!byPk.has(s.PK)) byPk.set(s.PK, s);
+    }
+    return withState(filterServices([...byPk.values()], query));
   }, [query, catCache, withState]);
 
   async function choose(service, action, via) {
@@ -115,20 +175,6 @@ export default function Services({ profile }) {
     return <div className="flex items-center justify-center p-8"><p className="text-slate-400 text-sm">Select a profile first.</p></div>;
   }
 
-  function Row({ s }) {
-    return (
-      <button
-        onClick={() => setSheet(s)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-slate-700/40 text-left"
-      >
-        <span className="flex-1 text-sm text-slate-800 dark:text-slate-200">{s.name}</span>
-        <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${s.action ? PILL[s.action] : 'bg-slate-200 text-slate-400'}`}>
-          {s.action ? s.action[0].toUpperCase() + s.action.slice(1) : 'Set'} ›
-        </span>
-      </button>
-    );
-  }
-
   return (
     <div className="flex flex-col h-full">
       <div className="shrink-0 p-3 flex gap-2 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800">
@@ -146,7 +192,7 @@ export default function Services({ profile }) {
 
       <div className="flex-1 overflow-y-auto scroll-area">
         {loading ? (
-          <div className="p-4 flex flex-col gap-3">{[1, 2, 3].map((i) => <div key={i} className="skeleton h-14 rounded-xl bg-slate-200 dark:bg-slate-800" />)}</div>
+          <ServicesSkeleton />
         ) : error ? (
           <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
             <AlertCircle className="w-8 h-8 text-red-400" />
@@ -155,8 +201,15 @@ export default function Services({ profile }) {
           </div>
         ) : query ? (
           <div>
-            {searchResults && searchResults.length ? searchResults.map((s) => <Row key={s.PK} s={s} />)
-              : <div className="text-center py-12 text-slate-400 text-sm">No apps match "{query}".</div>}
+            {searchLoading ? (
+              // First full-catalog sweep still running: show the same skeleton
+              // as the initial load instead of a premature "No apps match".
+              <ServicesSkeleton />
+            ) : searchResults && searchResults.length ? (
+              searchResults.map((s) => <Row key={s.PK} service={s} onTap={setSheet} />)
+            ) : (
+              <div className="text-center py-12 text-slate-400 text-sm">No apps match "{query}".</div>
+            )}
           </div>
         ) : (
           <div className="p-2">
@@ -169,7 +222,7 @@ export default function Services({ profile }) {
                 </button>
                 {openCats[c.PK] && (
                   <div className="bg-white dark:bg-slate-800/40 rounded-b-xl overflow-hidden">
-                    {(withState(catCache[c.PK] || [])).map((s) => <Row key={s.PK} s={s} />)}
+                    {(withState(catCache[c.PK] || [])).map((s) => <Row key={s.PK} service={s} onTap={setSheet} />)}
                   </div>
                 )}
               </div>
