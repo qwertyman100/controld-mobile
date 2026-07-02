@@ -4,3 +4,6 @@ dist/
 .env.local
 .env*.local
 .claude/
+
+# Visual brainstorming companion scratch
+.superpowers/
