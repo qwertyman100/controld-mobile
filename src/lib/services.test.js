@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeServiceState } from './services.js';
+import { mergeServiceState, filterServices } from './services.js';
 
 const catalog = [
   { PK: 'netflix', name: 'Netflix', category: 'video', unlock_location: 'JFK', warning: '' },
@@ -32,5 +32,31 @@ describe('mergeServiceState', () => {
   it('maps do code 0 to block', () => {
     const merged = mergeServiceState(catalog, [{ PK: 'netflix', do: 0, status: 1, via: null }]);
     expect(merged.find((s) => s.PK === 'netflix').action).toBe('block');
+  });
+});
+
+describe('filterServices', () => {
+  const cat = [
+    { PK: 'netflix', name: 'Netflix' },
+    { PK: 'youtube', name: 'YouTube' },
+    { PK: 'tiktok', name: 'TikTok' },
+  ];
+
+  it('matches on name, case-insensitively', () => {
+    expect(filterServices(cat, 'net').map((s) => s.PK)).toEqual(['netflix']);
+    expect(filterServices(cat, 'YOU').map((s) => s.PK)).toEqual(['youtube']);
+  });
+
+  it('matches on PK too', () => {
+    expect(filterServices(cat, 'tiktok').map((s) => s.PK)).toEqual(['tiktok']);
+  });
+
+  it('returns the full list unchanged for empty or whitespace query', () => {
+    expect(filterServices(cat, '')).toHaveLength(3);
+    expect(filterServices(cat, '   ')).toHaveLength(3);
+  });
+
+  it('returns [] when nothing matches', () => {
+    expect(filterServices(cat, 'zzzz')).toEqual([]);
   });
 });
