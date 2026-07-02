@@ -9,6 +9,7 @@ import ClipboardBanner from './components/ClipboardBanner';
 import ProfileList from './components/ProfileList';
 import CustomRules from './components/CustomRules';
 import Filters from './components/Filters';
+import Services from './components/Services';
 import Settings from './components/Settings';
 import { useToast } from './context/ToastContext';
 
@@ -83,12 +84,14 @@ export default function App() {
     profiles: 'Profiles',
     rules: profileName ?? 'Rules',
     filters: 'Filters',
+    services: 'Services',
     settings: 'Settings',
   }[page];
 
   const pageSubtitle = {
     rules: profileName ? 'Custom Rules' : undefined,
     filters: profileName ?? undefined,
+    services: profileName ?? undefined,
   }[page];
 
   // Show loading splash while auto-validating stored token
@@ -132,6 +135,8 @@ export default function App() {
       )}
 
       {page === 'filters' && <Filters profile={activeProfile} />}
+
+      {page === 'services' && <Services profile={activeProfile} />}
 
       {page === 'settings' && <Settings />}
     </Layout>
