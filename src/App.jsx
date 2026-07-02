@@ -11,6 +11,7 @@ import CustomRules from './components/CustomRules';
 import Filters from './components/Filters';
 import Services from './components/Services';
 import Settings from './components/Settings';
+import ErrorBoundary from './components/ErrorBoundary';
 import { useToast } from './context/ToastContext';
 
 // Persist last-used profile
@@ -119,26 +120,30 @@ export default function App() {
       onSettingsPress={page !== 'settings' ? () => setPage('settings') : undefined}
       banner={banner}
     >
-      {page === 'profiles' && (
-        <ProfileList
-          activeProfile={activeProfile}
-          onSelectProfile={handleSelectProfile}
-        />
-      )}
+      {/* Keyed by page so navigating to another tab remounts the boundary and
+          clears any caught error — a crashed screen never wedges the whole app. */}
+      <ErrorBoundary key={page}>
+        {page === 'profiles' && (
+          <ProfileList
+            activeProfile={activeProfile}
+            onSelectProfile={handleSelectProfile}
+          />
+        )}
 
-      {page === 'rules' && (
-        <CustomRules
-          profile={activeProfile}
-          clipboardDomain={clipboardDomain}
-          onClipboardAdd={addRuleRef}
-        />
-      )}
+        {page === 'rules' && (
+          <CustomRules
+            profile={activeProfile}
+            clipboardDomain={clipboardDomain}
+            onClipboardAdd={addRuleRef}
+          />
+        )}
 
-      {page === 'filters' && <Filters profile={activeProfile} />}
+        {page === 'filters' && <Filters profile={activeProfile} />}
 
-      {page === 'services' && <Services profile={activeProfile} />}
+        {page === 'services' && <Services profile={activeProfile} />}
 
-      {page === 'settings' && <Settings />}
+        {page === 'settings' && <Settings />}
+      </ErrorBoundary>
     </Layout>
   );
 }
