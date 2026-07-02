@@ -20,12 +20,19 @@ export function mergeServiceState(catalog, configured) {
   });
 }
 
-/** Case-insensitive substring search over name and PK. Blank query = passthrough. */
+/**
+ * Case-insensitive substring search over name and PK. Blank query = passthrough.
+ * name/PK are coerced via String() because the live catalog contains services
+ * whose name AND PK are numbers (e.g. "1688") — an unguarded .toLowerCase() on a
+ * number throws and white-screens the whole app on the first search keystroke.
+ */
 export function filterServices(catalog, query) {
   const q = (query ?? '').trim().toLowerCase();
   if (!q) return catalog ?? [];
   return (catalog ?? []).filter(
-    (s) => s.name.toLowerCase().includes(q) || s.PK.toLowerCase().includes(q)
+    (s) =>
+      String(s.name ?? '').toLowerCase().includes(q) ||
+      String(s.PK ?? '').toLowerCase().includes(q)
   );
 }
 

@@ -64,6 +64,19 @@ describe('filterServices', () => {
   it('returns [] when nothing matches', () => {
     expect(filterServices(cat, 'zzzz')).toEqual([]);
   });
+
+  // Regression: the live catalog contains a service ("1688", in shop) whose
+  // name AND PK are NUMBERS, not strings. Unguarded .toLowerCase() on a number
+  // throws and white-screens the whole app on the first search keystroke.
+  it('handles non-string name/PK (e.g. numeric 1688) without throwing', () => {
+    const withNumeric = [
+      { PK: 1688, name: 1688 },
+      { PK: 'netflix', name: 'Netflix' },
+    ];
+    expect(() => filterServices(withNumeric, 'net')).not.toThrow();
+    expect(filterServices(withNumeric, '168').map((s) => s.PK)).toEqual([1688]);
+    expect(filterServices(withNumeric, 'net').map((s) => s.PK)).toEqual(['netflix']);
+  });
 });
 
 describe('buildServicePayload', () => {
