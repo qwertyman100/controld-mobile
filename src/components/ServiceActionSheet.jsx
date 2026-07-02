@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, MapPin } from 'lucide-react';
 import { resolveDefaultLocation } from '../lib/services';
 
 const ACTIONS = [
@@ -18,9 +18,9 @@ export default function ServiceActionSheet({ service, proxies, onChoose, onClose
   const list = q
     ? proxies.filter(
         (p) =>
-          p.city.toLowerCase().includes(q.toLowerCase()) ||
-          p.country_name.toLowerCase().includes(q.toLowerCase()) ||
-          p.PK.toLowerCase().includes(q.toLowerCase())
+          (p.city || '').toLowerCase().includes(q.toLowerCase()) ||
+          (p.country_name || '').toLowerCase().includes(q.toLowerCase()) ||
+          (p.PK || '').toLowerCase().includes(q.toLowerCase())
       )
     : proxies;
 
@@ -74,9 +74,9 @@ export default function ServiceActionSheet({ service, proxies, onChoose, onClose
                 {a.key === 'redirect' && (
                   <button
                     onClick={() => setPicking(true)}
-                    className="ml-8 mb-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-2 rounded-lg"
+                    className="ml-8 mb-2 text-sm text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-3 py-2 rounded-lg flex items-center gap-2"
                   >
-                    📍 {chosen ? `${chosen.city} (${chosen.PK})` : 'Pick location'} · change ›
+                    <MapPin size={14} /> {chosen ? `${chosen.city} (${chosen.PK})` : 'Pick location'} · change ›
                   </button>
                 )}
               </div>
