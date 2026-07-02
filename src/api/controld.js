@@ -126,6 +126,12 @@ export const api = {
       payload
     ),
 
+  // Services catalog (global, not per-profile)
+  getServiceCategories: (token) => request(token, 'GET', '/services/categories'),
+
+  getServiceCategory: (token, category) =>
+    request(token, 'GET', `/services/categories/${category}`),
+
   // Devices (Phase 2)
   getDevices: (token) => request(token, 'GET', '/devices'),
 };
