@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mergeServiceState, filterServices } from './services.js';
+import { mergeServiceState, filterServices, buildServicePayload } from './services.js';
 
 const catalog = [
   { PK: 'netflix', name: 'Netflix', category: 'video', unlock_location: 'JFK', warning: '' },
@@ -58,5 +58,23 @@ describe('filterServices', () => {
 
   it('returns [] when nothing matches', () => {
     expect(filterServices(cat, 'zzzz')).toEqual([]);
+  });
+});
+
+describe('buildServicePayload', () => {
+  it('block -> {do:0,status:1}', () => {
+    expect(buildServicePayload('block')).toEqual({ do: 0, status: 1 });
+  });
+  it('bypass -> {do:1,status:1}', () => {
+    expect(buildServicePayload('bypass')).toEqual({ do: 1, status: 1 });
+  });
+  it('redirect -> {do:3,status:1,via}', () => {
+    expect(buildServicePayload('redirect', 'SYD')).toEqual({ do: 3, status: 1, via: 'SYD' });
+  });
+  it('off -> {status:0}', () => {
+    expect(buildServicePayload('off')).toEqual({ status: 0 });
+  });
+  it('throws on an unknown action', () => {
+    expect(() => buildServicePayload('spoof')).toThrow();
   });
 });

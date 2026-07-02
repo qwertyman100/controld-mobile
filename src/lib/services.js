@@ -28,3 +28,14 @@ export function filterServices(catalog, query) {
     (s) => s.name.toLowerCase().includes(q) || s.PK.toLowerCase().includes(q)
   );
 }
+
+/** Build the PUT body for updateService from a UI action choice. */
+export function buildServicePayload(action, viaLocation) {
+  switch (action) {
+    case 'block': return { do: 0, status: 1 };
+    case 'bypass': return { do: 1, status: 1 };
+    case 'redirect': return { do: 3, status: 1, via: viaLocation };
+    case 'off': return { status: 0 };
+    default: throw new Error(`Unknown service action: ${action}`);
+  }
+}
