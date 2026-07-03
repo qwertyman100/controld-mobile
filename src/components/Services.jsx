@@ -158,13 +158,20 @@ export default function Services({ profile }) {
     setSheet(null);
     const prev = configured;
     // optimistic: reflect the change locally
-    const payload = buildServicePayload(action, via);
     const next = configured.filter((c) => c.PK !== service.PK);
-    if (action !== 'off') next.push({ PK: service.PK, do: payload.do, status: 1, via: via ?? null });
+    const payload = action === 'off' ? null : buildServicePayload(action, via);
+    if (payload) next.push({ PK: service.PK, do: payload.do, status: 1, via: via ?? null });
     setConfigured(next);
     try {
-      await api.updateService(token, profileId, service.PK, payload);
-      toast(`${service.name} → ${action}`, 'success');
+      if (action === 'off') {
+        // "Remove" fully DELETEs the record rather than disabling it (status:0),
+        // so the profile stays clean instead of accruing inert placeholder entries.
+        await api.deleteService(token, profileId, service.PK);
+        toast(`${service.name} removed`, 'success');
+      } else {
+        await api.updateService(token, profileId, service.PK, payload);
+        toast(`${service.name} → ${action}`, 'success');
+      }
       if (navigator.vibrate) navigator.vibrate(20);
     } catch (err) {
       setConfigured(prev); // rollback

@@ -126,6 +126,15 @@ export const api = {
       payload
     ),
 
+  // "Remove" a service = hard delete the record (not status:0), so the profile
+  // doesn't accumulate inert disabled entries.
+  deleteService: (token, profileId, serviceId) =>
+    request(
+      token,
+      'DELETE',
+      `/profiles/${encodeURIComponent(profileId)}/services/${encodeURIComponent(serviceId)}`
+    ),
+
   // Services catalog (global, not per-profile)
   getServiceCategories: (token) => request(token, 'GET', '/services/categories'),
 
