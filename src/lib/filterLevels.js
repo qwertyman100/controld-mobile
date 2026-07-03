@@ -66,3 +66,28 @@ export function buildFilterLevelOps(filter, targetTitle, aiValue) {
     option: null,
   };
 }
+
+function stripTags(s) {
+  return String(s ?? '').replace(/<[^>]*>/g, '');
+}
+
+/**
+ * Parse a filter's `additional` HTML into { modeTitle: description }. The API
+ * ships each mode as "<p><strong>LABEL</strong></p>TEXT"; LABEL is the mode title,
+ * sometimes with a trailing " Mode" (Ads/Malware/Adult) and sometimes not (NRD's
+ * "Last Week"/"Last Month"). All tags are stripped so the result is plain text —
+ * safe to render as a React child (no dangerouslySetInnerHTML). Returns {} if the
+ * field is empty or not in the expected shape.
+ */
+export function parseModeDescriptions(additional) {
+  const html = String(additional ?? '');
+  const re = /<p>\s*<strong>(.*?)<\/strong>\s*<\/p>(.*?)(?=<p>\s*<strong>|$)/gis;
+  const out = {};
+  let m;
+  while ((m = re.exec(html)) !== null) {
+    const label = stripTags(m[1]).replace(/\s*Mode\s*$/i, '').replace(/\s+/g, ' ').trim();
+    const text = stripTags(m[2]).replace(/\s+/g, ' ').trim();
+    if (label) out[label] = text;
+  }
+  return out;
+}

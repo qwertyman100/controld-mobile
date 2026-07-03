@@ -1,6 +1,6 @@
 // src/components/FilterLevelSheet.jsx
 import { X } from 'lucide-react';
-import { getFilterLevels, AI_STRENGTHS } from '../lib/filterLevels';
+import { getFilterLevels, AI_STRENGTHS, parseModeDescriptions } from '../lib/filterLevels';
 
 // Colour by mode position (Off grey, then green→amber→red by intensity).
 function dotClass(title) {
@@ -12,6 +12,9 @@ function dotClass(title) {
 
 export default function FilterLevelSheet({ filter, onChoose, onClose }) {
   const { options, currentTitle, isCumulative, aiValue } = getFilterLevels(filter);
+  // Per-mode "what it blocks" text, parsed from the API's `additional` HTML to
+  // plain text (no raw-HTML render). Off has no entry — that's fine.
+  const descriptions = parseModeDescriptions(filter.additional);
 
   return (
     <div className="fixed inset-0 z-50 flex items-end" onClick={onClose}>
@@ -34,13 +37,20 @@ export default function FilterLevelSheet({ filter, onChoose, onClose }) {
             <div key={title}>
               <button
                 onClick={() => onChoose(title, isCumulative && title === 'Strict' ? (aiValue ?? 0.9) : undefined)}
-                className={`w-full flex items-center gap-2 px-4 py-3 rounded-xl font-semibold mb-2 text-slate-800 dark:text-slate-200 ${
+                className={`w-full text-left px-4 py-3 rounded-xl mb-2 ${
                   selected ? 'ring-2 ring-green-500 bg-slate-100 dark:bg-slate-700/50' : 'bg-slate-50 dark:bg-slate-700/30'
                 }`}
               >
-                <span className={`w-2.5 h-2.5 rounded-full ${dotClass(title)}`} />
-                {title}
-                {selected ? <span className="ml-auto text-xs text-green-500">current</span> : null}
+                <span className="flex items-center gap-2 font-semibold text-slate-800 dark:text-slate-200">
+                  <span className={`w-2.5 h-2.5 rounded-full ${dotClass(title)}`} />
+                  {title}
+                  {selected ? <span className="ml-auto text-xs text-green-500">current</span> : null}
+                </span>
+                {descriptions[title] ? (
+                  <span className="block mt-1 ml-[18px] text-xs font-normal text-slate-500 dark:text-slate-400 leading-snug">
+                    {descriptions[title]}
+                  </span>
+                ) : null}
               </button>
 
               {isCumulative && title === 'Strict' && (

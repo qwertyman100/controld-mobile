@@ -118,3 +118,37 @@ describe('buildFilterLevelOps', () => {
     expect(buildFilterLevelOps(malware, 'Strict').option.value).toBe(0.9);
   });
 });
+
+import { parseModeDescriptions } from './filterLevels.js';
+
+describe('parseModeDescriptions', () => {
+  const adsAdditional =
+    '<p><strong>Relaxed Mode</strong></p>Smallest block list, will only block very common ads and trackers. Least prone to false positives. <p><strong>Balanced Mode</strong></p>Medium sized block list, will block a lot more than the Relaxed mode, but still allow common affiliate and email tracking links. <p><strong>Strict Mode</strong></p>Will block the most ads and trackers, but also has the highest chance of false positives.';
+  const nrdAdditional =
+    '<p><strong>Last Week</strong></p>Blocks domains that were registered in the last week. <p><strong>Last Month</strong></p>Blocks domains that were registered in the last month.';
+
+  it('parses mode descriptions keyed by title, stripping a trailing " Mode"', () => {
+    const m = parseModeDescriptions(adsAdditional);
+    expect(m.Relaxed).toMatch(/^Smallest block list/);
+    expect(m.Balanced).toMatch(/affiliate and email tracking links\.$/);
+    expect(m.Strict).toMatch(/highest chance of false positives\.$/);
+  });
+
+  it('handles labels without a " Mode" suffix (NRD Last Week / Last Month)', () => {
+    const m = parseModeDescriptions(nrdAdditional);
+    expect(m['Last Week']).toBe('Blocks domains that were registered in the last week.');
+    expect(m['Last Month']).toBe('Blocks domains that were registered in the last month.');
+  });
+
+  it('strips nested tags from the description text', () => {
+    expect(parseModeDescriptions('<p><strong>Relaxed Mode</strong></p>Safe <b>bold</b> text'))
+      .toEqual({ Relaxed: 'Safe bold text' });
+  });
+
+  it('returns {} for empty / non-string / markup-less input', () => {
+    expect(parseModeDescriptions('')).toEqual({});
+    expect(parseModeDescriptions(null)).toEqual({});
+    expect(parseModeDescriptions(undefined)).toEqual({});
+    expect(parseModeDescriptions('plain text, no markup')).toEqual({});
+  });
+});
