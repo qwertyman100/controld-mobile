@@ -111,6 +111,19 @@ export const api = {
       { status }
     ),
 
+  // Batch enable/disable multiple filters (used for filter levels)
+  batchFilters: (token, profileId, filters) =>
+    request(token, 'PUT', `/profiles/${encodeURIComponent(profileId)}/filters`, { filters }),
+
+  // Set a profile option (e.g. ai_malware for Malware Strict)
+  setOption: (token, profileId, name, payload) =>
+    request(
+      token,
+      'PUT',
+      `/profiles/${encodeURIComponent(profileId)}/options/${encodeURIComponent(name)}`,
+      payload
+    ),
+
   // Proxies (for redirect rules)
   getProxies: (token) => request(token, 'GET', '/proxies'),
 
