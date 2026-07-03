@@ -15,30 +15,15 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api, toArray, RULE_ACTION, extractDomain } from '../api/controld';
 import { sanitizeSearchQuery } from '../lib/inputPolicy';
+import { normaliseRule } from '../lib/rules';
 
-// Map numeric "do" value → display label + colour
+// ── Map numeric "do" value → display label + colour ──
 // API: 0=BLOCK, 1=BYPASS, 2=SPOOF, 3=REDIRECT
 const ACTION_META = {
   [RULE_ACTION.BLOCK]:   { label: 'Block',    color: 'text-red-500',   bg: 'bg-red-500/10 border-red-500/25'    },
   [RULE_ACTION.BYPASS]:  { label: 'Bypass',   color: 'text-green-500', bg: 'bg-green-500/10 border-green-500/25' },
   [RULE_ACTION.REDIRECT]:{ label: 'Redirect', color: 'text-blue-400',  bg: 'bg-blue-500/10 border-blue-500/25'  },
 };
-
-// Normalise a rule object to a consistent shape regardless of API quirks
-// API shape: { PK, hostname, do, status, group (int), order, via }
-export function normaliseRule(r) {
-  return {
-    // Coerce to string: some API records carry a NUMBER as hostname/PK (the "1688"
-    // class), and an unguarded .toLowerCase() downstream (rules filter) would throw
-    // and white-screen. Guarantee a string here so every consumer is safe.
-    hostname: String(r.hostname ?? r.PK ?? r.pk ?? ''),
-    do: r.do ?? RULE_ACTION.BYPASS,
-    status: r.status ?? 1,
-    group: r.group ?? null,  // integer group PK, null = ungrouped
-    via: r.via ?? null,
-    _raw: r,
-  };
-}
 
 export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }) {
   const { token } = useAuth();
