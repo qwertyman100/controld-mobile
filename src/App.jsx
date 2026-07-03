@@ -117,7 +117,6 @@ export default function App() {
       subtitle={pageSubtitle}
       page={page}
       onNavigate={setPage}
-      onSettingsPress={page !== 'settings' ? () => setPage('settings') : undefined}
       banner={banner}
     >
       {/* Keyed by page so navigating to another tab remounts the boundary and
