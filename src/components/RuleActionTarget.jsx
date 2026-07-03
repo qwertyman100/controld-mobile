@@ -14,7 +14,10 @@ const ORDER = [RULE_ACTION.BYPASS, RULE_ACTION.BLOCK, RULE_ACTION.REDIRECT, RULE
 export default function RuleActionTarget({
   action, onActionChange, via, onViaChange, viaV6, onViaV6Change, proxies = [],
 }) {
-  const [showV6, setShowV6] = useState(!!viaV6);
+  // Show the IPv6 field if the user opened it OR a via_v6 value is present (so it
+  // stays correct when the parent swaps/reset the target without a remount).
+  const [manualV6, setManualV6] = useState(false);
+  const showV6 = manualV6 || Boolean(viaV6);
 
   return (
     <div className="flex flex-col gap-2">
@@ -76,7 +79,7 @@ export default function RuleActionTarget({
               className="w-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl px-3.5 py-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           ) : (
-            <button type="button" onClick={() => setShowV6(true)} className="self-start text-xs text-purple-500 font-medium px-1">
+            <button type="button" onClick={() => setManualV6(true)} className="self-start text-xs text-purple-500 font-medium px-1">
               + Add IPv6 target
             </button>
           )}
