@@ -66,3 +66,55 @@ describe('getFilterLevels', () => {
     expect(getFilterLevels({}).isMultiLevel).toBe(false);
   });
 });
+
+import { buildFilterLevelOps } from './filterLevels.js';
+
+describe('buildFilterLevelOps', () => {
+  const ads = {
+    PK: 'ads',
+    levels: [
+      { title: 'Relaxed', name: 'ads_small' },
+      { title: 'Balanced', name: 'ads_medium' },
+      { title: 'Strict', name: 'ads' },
+    ],
+  };
+  const malware = { PK: 'malware', levels: [] }; // cumulative logic is by PK, not levels
+
+  it('exclusive: enables the chosen level key, disables siblings, no option', () => {
+    expect(buildFilterLevelOps(ads, 'Balanced')).toEqual({
+      filters: [
+        { filter: 'ads_small', status: 0 },
+        { filter: 'ads_medium', status: 1 },
+        { filter: 'ads', status: 0 },
+      ],
+      option: null,
+    });
+  });
+  it('exclusive: Off disables every level key', () => {
+    expect(buildFilterLevelOps(ads, 'Off').filters.every((f) => f.status === 0)).toBe(true);
+  });
+  it('cumulative malware Off: all layers off + ai option off', () => {
+    expect(buildFilterLevelOps(malware, 'Off')).toEqual({
+      filters: [{ filter: 'malware', status: 0 }, { filter: 'ip_malware', status: 0 }],
+      option: { name: 'ai_malware', status: 0 },
+    });
+  });
+  it('cumulative malware Relaxed / Balanced stack the layers, ai off', () => {
+    expect(buildFilterLevelOps(malware, 'Relaxed').filters).toEqual([
+      { filter: 'malware', status: 1 }, { filter: 'ip_malware', status: 0 },
+    ]);
+    expect(buildFilterLevelOps(malware, 'Balanced').filters).toEqual([
+      { filter: 'malware', status: 1 }, { filter: 'ip_malware', status: 1 },
+    ]);
+    expect(buildFilterLevelOps(malware, 'Balanced').option).toEqual({ name: 'ai_malware', status: 0 });
+  });
+  it('cumulative malware Strict: all layers on + ai option on with the given strength', () => {
+    expect(buildFilterLevelOps(malware, 'Strict', 0.7)).toEqual({
+      filters: [{ filter: 'malware', status: 1 }, { filter: 'ip_malware', status: 1 }],
+      option: { name: 'ai_malware', status: 1, value: 0.7 },
+    });
+  });
+  it('cumulative malware Strict defaults AI strength to 0.9', () => {
+    expect(buildFilterLevelOps(malware, 'Strict').option.value).toBe(0.9);
+  });
+});

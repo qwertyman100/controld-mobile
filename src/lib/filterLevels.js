@@ -39,3 +39,30 @@ export function getFilterLevels(filter) {
 
   return { isMultiLevel, isCumulative, options, currentTitle, aiValue };
 }
+
+/**
+ * Compute the API operations to set `filter` to `targetTitle`.
+ * Exclusive filters → one filter-batch (enable chosen, disable siblings).
+ * Malware (cumulative) → stacked malware/ip_malware layers + the ai_malware option.
+ */
+export function buildFilterLevelOps(filter, targetTitle, aiValue) {
+  if (filter?.PK === 'malware') {
+    const wantMalware = ['Relaxed', 'Balanced', 'Strict'].includes(targetTitle);
+    const wantIp = ['Balanced', 'Strict'].includes(targetTitle);
+    const wantAi = targetTitle === 'Strict';
+    return {
+      filters: [
+        { filter: 'malware', status: wantMalware ? 1 : 0 },
+        { filter: 'ip_malware', status: wantIp ? 1 : 0 },
+      ],
+      option: wantAi
+        ? { name: 'ai_malware', status: 1, value: aiValue ?? AI_DEFAULT }
+        : { name: 'ai_malware', status: 0 },
+    };
+  }
+  const levels = Array.isArray(filter?.levels) ? filter.levels : [];
+  return {
+    filters: levels.map((l) => ({ filter: l.name, status: l.title === targetTitle ? 1 : 0 })),
+    option: null,
+  };
+}
