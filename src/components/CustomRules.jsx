@@ -26,9 +26,12 @@ const ACTION_META = {
 
 // Normalise a rule object to a consistent shape regardless of API quirks
 // API shape: { PK, hostname, do, status, group (int), order, via }
-function normaliseRule(r) {
+export function normaliseRule(r) {
   return {
-    hostname: r.hostname ?? r.PK ?? r.pk ?? '',
+    // Coerce to string: some API records carry a NUMBER as hostname/PK (the "1688"
+    // class), and an unguarded .toLowerCase() downstream (rules filter) would throw
+    // and white-screen. Guarantee a string here so every consumer is safe.
+    hostname: String(r.hostname ?? r.PK ?? r.pk ?? ''),
     do: r.do ?? RULE_ACTION.BYPASS,
     status: r.status ?? 1,
     group: r.group ?? null,  // integer group PK, null = ungrouped

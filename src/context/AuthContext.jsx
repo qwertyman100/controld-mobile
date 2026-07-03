@@ -47,7 +47,16 @@ export function AuthProvider({ children }) {
       setLoading(false);
       return;
     }
-    api.getUser(token)
+    // Defense-in-depth: re-validate the token restored from localStorage against the
+    // allowlist policy before use — a poisoned/malformed stored value is logged out
+    // rather than sent to the network.
+    const check = validateToken(token);
+    if (!check.ok) {
+      logout();
+      setLoading(false);
+      return;
+    }
+    api.getUser(check.value)
       .then((body) => setUser(body?.user ?? body))
       .catch((err) => {
         // Only force re-login on definitive auth failures, not network errors
