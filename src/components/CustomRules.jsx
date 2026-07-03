@@ -82,7 +82,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
         setProxies(list);
         if (list.length > 0) {
           const first = list[0];
-          setVia(first.PK ?? first.pk ?? first.id ?? first.name ?? '');
+          setVia(String(first.PK ?? first.pk ?? first.id ?? first.name ?? ''));
         }
       })
       .catch((err) => {
@@ -172,7 +172,10 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
   // ── Save an edited rule (action + target) from the edit sheet ──
   async function handleEditSave(rule, payload) {
     setEditingRule(null);
-    const prev = rules;
+    // Capture only the fields we're about to change, not the whole array —
+    // rolling back the whole snapshot could clobber a concurrent update
+    // (e.g. a toggle or delete) that landed while this request was in flight.
+    const orig = { do: rule.do, via: rule.via ?? null, via_v6: rule.via_v6 ?? null };
     setRules((rs) => rs.map((r) => (r.hostname === rule.hostname
       ? { ...r, do: payload.do, via: payload.via ?? null, via_v6: payload.via_v6 ?? null } : r)));
     try {
@@ -180,7 +183,8 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
       toast(`Updated ${rule.hostname}`, 'success');
       if (navigator.vibrate) navigator.vibrate(20);
     } catch (err) {
-      setRules(prev); // rollback
+      // Rollback only the edited fields on this one rule
+      setRules((rs) => rs.map((r) => (r.hostname === rule.hostname ? { ...r, ...orig } : r)));
       toast(err.message, 'error');
     }
   }
@@ -254,7 +258,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
               type="submit"
               disabled={!domain.trim() || adding
                 || (action === RULE_ACTION.REDIRECT && !via)
-                || (action === RULE_ACTION.SPOOF && !via.trim())}
+                || (action === RULE_ACTION.SPOOF && !String(via).trim())}
               className="shrink-0 bg-green-500 hover:bg-green-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-xl px-4 py-3 font-semibold text-sm flex items-center gap-1.5 transition-colors min-w-[76px] justify-center"
             >
               {adding ? (
