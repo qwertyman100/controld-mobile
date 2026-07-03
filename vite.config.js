@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import { configDefaults } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
@@ -29,6 +30,14 @@ export default defineConfig({
     // Pure-function tests are unaffected (jsdom is a superset of the node env).
     environment: 'jsdom',
     setupFiles: ['./src/test-setup.js'],
+    // Never collect tests from git worktrees. superpowers feature work runs in
+    // .claude/worktrees/<branch>/, which contains a full copy of src/ + its
+    // *.test files. Without this, `npm test` from the repo root globs BOTH the
+    // main tree and every live worktree, running the whole suite 2× and failing
+    // where the duplicate jsdom copies collide on shared globals — a scary
+    // false-failure that already bit a merge once. (Spread the defaults so we
+    // add to node_modules/dist/etc. rather than replacing them.)
+    exclude: [...configDefaults.exclude, '**/.claude/worktrees/**'],
   },
   server: {
     proxy: {
