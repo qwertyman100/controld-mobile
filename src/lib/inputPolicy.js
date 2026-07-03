@@ -12,13 +12,17 @@ const TOKEN_RE = /^[A-Za-z0-9._-]+$/;
 
 /**
  * Free-text / search policy. Coerce to string (guards the numeric-name crash),
- * keep ONLY English letters, digits and spaces, then length-cap. This strips
- * control chars and every dev/shell metacharacter. Strips rather than rejects so
- * live-search stays smooth while still enforcing the allowlist.
+ * keep English letters, digits, spaces, and the punctuation that appears in real
+ * service names (& . + / - — e.g. "A&E TV", "Last.fm", "AMC+", "Edgio / Edgecast",
+ * "D-Link"); strip everything else, including shell/code metacharacters. Strips
+ * rather than rejects so live-search stays smooth while enforcing the allowlist.
+ * (Safe: this value only feeds a client-side substring filter + React-escaped
+ * render — no SQL/shell/DOM sink — so the allowlist here is hygiene, not the
+ * injection defense.)
  */
 export function sanitizeSearchQuery(raw) {
   return String(raw ?? '')
-    .replace(/[^A-Za-z0-9 ]/g, '')
+    .replace(/[^A-Za-z0-9 &.+/-]/g, '')
     .slice(0, SEARCH_MAXLEN);
 }
 

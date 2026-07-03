@@ -4,22 +4,28 @@ import { sanitizeSearchQuery, validateToken } from './inputPolicy.js';
 // A realistic ControlD token: [A-Za-z0-9._-], comfortably long (real one is 68).
 const GOOD_TOKEN = 'api.a2b3c4d5e6f7g8h9-i0j1k2l3_m4n5o6p7q8r9s0';
 
-describe('sanitizeSearchQuery — allowlist [A-Za-z0-9 space], strip the rest', () => {
+describe('sanitizeSearchQuery — allowlist [A-Za-z0-9 space & . + / -], strip the rest', () => {
   it('coerces non-strings and null/undefined to a string', () => {
     expect(sanitizeSearchQuery(1688)).toBe('1688'); // the exact numeric-field trap that crashed us
     expect(sanitizeSearchQuery(null)).toBe('');
     expect(sanitizeSearchQuery(undefined)).toBe('');
   });
 
-  it('keeps English letters, digits, and spaces (finds any app)', () => {
+  it('keeps letters, digits, spaces, and the name punctuation & . + / -', () => {
     expect(sanitizeSearchQuery('9GAG')).toBe('9GAG');
     expect(sanitizeSearchQuery('Amazon Music')).toBe('Amazon Music');
+    // real service names that require these characters:
+    expect(sanitizeSearchQuery('A&E TV')).toBe('A&E TV');
+    expect(sanitizeSearchQuery('Last.fm')).toBe('Last.fm');
+    expect(sanitizeSearchQuery('AMC+')).toBe('AMC+');
+    expect(sanitizeSearchQuery('Edgio / Edgecast')).toBe('Edgio / Edgecast');
+    expect(sanitizeSearchQuery('D-Link')).toBe('D-Link');
   });
 
-  it('strips dev/shell metacharacters — the injection signal', () => {
-    expect(sanitizeSearchQuery('app{}[]|<>;$&()name')).toBe('appname');
-    expect(sanitizeSearchQuery("'; DROP TABLE x;--")).toBe(' DROP TABLE x'); // quotes/;/- gone, letters+space remain
+  it('still strips shell/code metacharacters (the injection signal)', () => {
+    expect(sanitizeSearchQuery('a{b}[c]|d<e>f;g$h')).toBe('abcdefgh');
     expect(sanitizeSearchQuery('$(whoami)')).toBe('whoami');
+    expect(sanitizeSearchQuery("' OR 1=1")).toBe(' OR 11'); // quote and = stripped
   });
 
   it('strips ASCII control characters (NUL, ESC, DEL, newline, tab)', () => {
@@ -27,8 +33,9 @@ describe('sanitizeSearchQuery — allowlist [A-Za-z0-9 space], strip the rest', 
     expect(sanitizeSearchQuery('line\nbreak\ttab')).toBe('linebreaktab');
   });
 
-  it('renders injection-shaped input inert (metachars removed, plain string out)', () => {
-    expect(sanitizeSearchQuery('<script>alert(1)</script>')).toBe('scriptalert1script');
+  it('renders injection-shaped input inert (dangerous chars removed, plain string out)', () => {
+    // <, >, (, ) stripped; surviving letters/slash are inert text
+    expect(sanitizeSearchQuery('<script>alert(1)</script>')).toBe('scriptalert1/script');
     expect(typeof sanitizeSearchQuery('`rm -rf /`')).toBe('string');
   });
 
