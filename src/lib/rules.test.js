@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normaliseRule } from './rules.js';
+import { normaliseRule, validateSpoofTarget } from './rules.js';
 
 describe('normaliseRule', () => {
   it('reads the NESTED action (regression: was read from top level → always Bypass)', () => {
@@ -18,5 +18,27 @@ describe('normaliseRule', () => {
   });
   it('defaults to Bypass/enabled on an empty object', () => {
     expect(normaliseRule({})).toMatchObject({ hostname: '', do: 1, status: 1 });
+  });
+});
+
+describe('validateSpoofTarget', () => {
+  it('accepts IPv4 and hostnames (no TLD required)', () => {
+    for (const v of ['192.168.1.50', '100.64.1.5', 'myserver.home', 'nas', 'example.com']) {
+      expect(validateSpoofTarget(v).ok).toBe(true);
+    }
+  });
+  it('rejects a numeric-dotted string that is not a valid IPv4', () => {
+    expect(validateSpoofTarget('999.1.1.1').ok).toBe(false); // octet > 255
+  });
+  it('rejects empty, whitespace, and metacharacters', () => {
+    expect(validateSpoofTarget('').ok).toBe(false);
+    expect(validateSpoofTarget('has space').ok).toBe(false);
+    expect(validateSpoofTarget('bad;$char').ok).toBe(false);
+  });
+  it('validates IPv6 only in ipv6 mode', () => {
+    expect(validateSpoofTarget('2001:db8::1', { ipv6: true }).ok).toBe(true);
+    expect(validateSpoofTarget('::1', { ipv6: true }).ok).toBe(true);
+    expect(validateSpoofTarget('1.2.3.4', { ipv6: true }).ok).toBe(false); // no colons
+    expect(validateSpoofTarget('nothex!', { ipv6: true }).ok).toBe(false);
   });
 });
