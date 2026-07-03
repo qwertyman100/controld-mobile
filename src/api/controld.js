@@ -75,39 +75,39 @@ export const api = {
     request(
       token,
       'GET',
-      `/profiles/${profileId}/rules${folderId ? `/${encodeURIComponent(folderId)}` : ''}`
+      `/profiles/${encodeURIComponent(profileId)}/rules${folderId ? `/${encodeURIComponent(folderId)}` : ''}`
     ),
 
   createRule: (token, profileId, payload) =>
-    request(token, 'POST', `/profiles/${profileId}/rules`, payload),
+    request(token, 'POST', `/profiles/${encodeURIComponent(profileId)}/rules`, payload),
 
   // PUT requires hostname in the body to identify which rule to update
   updateRule: (token, profileId, payload) =>
-    request(token, 'PUT', `/profiles/${profileId}/rules`, payload),
+    request(token, 'PUT', `/profiles/${encodeURIComponent(profileId)}/rules`, payload),
 
   deleteRule: (token, profileId, hostname) =>
     request(
       token,
       'DELETE',
-      `/profiles/${profileId}/rules/${encodeURIComponent(hostname)}`
+      `/profiles/${encodeURIComponent(profileId)}/rules/${encodeURIComponent(hostname)}`
     ),
 
   // Rule groups/folders
   getGroups: (token, profileId) =>
-    request(token, 'GET', `/profiles/${profileId}/groups`),
+    request(token, 'GET', `/profiles/${encodeURIComponent(profileId)}/groups`),
 
   // Filters
   getFilters: (token, profileId) =>
-    request(token, 'GET', `/profiles/${profileId}/filters`),
+    request(token, 'GET', `/profiles/${encodeURIComponent(profileId)}/filters`),
 
   getExternalFilters: (token, profileId) =>
-    request(token, 'GET', `/profiles/${profileId}/filters/external`),
+    request(token, 'GET', `/profiles/${encodeURIComponent(profileId)}/filters/external`),
 
   toggleFilter: (token, profileId, filterId, status) =>
     request(
       token,
       'PUT',
-      `/profiles/${profileId}/filters/filter/${encodeURIComponent(filterId)}`,
+      `/profiles/${encodeURIComponent(profileId)}/filters/filter/${encodeURIComponent(filterId)}`,
       { status }
     ),
 
@@ -116,13 +116,13 @@ export const api = {
 
   // Services (Phase 2)
   getServices: (token, profileId) =>
-    request(token, 'GET', `/profiles/${profileId}/services`),
+    request(token, 'GET', `/profiles/${encodeURIComponent(profileId)}/services`),
 
   updateService: (token, profileId, serviceId, payload) =>
     request(
       token,
       'PUT',
-      `/profiles/${profileId}/services/${encodeURIComponent(serviceId)}`,
+      `/profiles/${encodeURIComponent(profileId)}/services/${encodeURIComponent(serviceId)}`,
       payload
     ),
 
