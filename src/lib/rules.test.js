@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { normaliseRule, validateSpoofTarget } from './rules.js';
+import { normaliseRule, validateSpoofTarget, buildRulePayload } from './rules.js';
+import { RULE_ACTION } from '../api/controld';
 
 describe('normaliseRule', () => {
   it('reads the NESTED action (regression: was read from top level → always Bypass)', () => {
@@ -40,5 +41,21 @@ describe('validateSpoofTarget', () => {
     expect(validateSpoofTarget('::1', { ipv6: true }).ok).toBe(true);
     expect(validateSpoofTarget('1.2.3.4', { ipv6: true }).ok).toBe(false); // no colons
     expect(validateSpoofTarget('nothex!', { ipv6: true }).ok).toBe(false);
+  });
+});
+
+describe('buildRulePayload', () => {
+  it('bypass / block carry no target', () => {
+    expect(buildRulePayload(RULE_ACTION.BYPASS)).toEqual({ do: 1, status: 1 });
+    expect(buildRulePayload(RULE_ACTION.BLOCK)).toEqual({ do: 0, status: 1 });
+  });
+  it('redirect carries via', () => {
+    expect(buildRulePayload(RULE_ACTION.REDIRECT, { via: 'JFK' })).toEqual({ do: 3, status: 1, via: 'JFK' });
+  });
+  it('spoof carries via and, when given, via_v6', () => {
+    expect(buildRulePayload(RULE_ACTION.SPOOF, { via: '1.2.3.4' })).toEqual({ do: 2, status: 1, via: '1.2.3.4' });
+    expect(buildRulePayload(RULE_ACTION.SPOOF, { via: '1.2.3.4', viaV6: '2001:db8::1' })).toEqual({
+      do: 2, status: 1, via: '1.2.3.4', via_v6: '2001:db8::1',
+    });
   });
 });

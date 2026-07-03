@@ -54,3 +54,11 @@ export function validateSpoofTarget(value, { ipv6 = false } = {}) {
   }
   return isHostname(v) ? { ok: true, value: v } : { ok: false, error: 'Enter an IPv4 address or hostname.' };
 }
+
+/** Build the create/update rule body for an action + target (caller adds hostname(s)). */
+export function buildRulePayload(doCode, { via, viaV6 } = {}) {
+  const payload = { do: doCode, status: 1 };
+  if ((doCode === RULE_ACTION.REDIRECT || doCode === RULE_ACTION.SPOOF) && via) payload.via = via;
+  if (doCode === RULE_ACTION.SPOOF && viaV6) payload.via_v6 = viaV6;
+  return payload;
+}
