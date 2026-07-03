@@ -7,7 +7,7 @@
  */
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
-async function request(token, method, path, body) {
+async function request(token, method, path, body, opts = {}) {
   const options = {
     method,
     headers: {
@@ -15,16 +15,23 @@ async function request(token, method, path, body) {
     },
   };
 
-  // Control D API accepts form-encoded bodies for mutations
   if (body !== undefined && method !== 'GET') {
-    options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-    options.body = new URLSearchParams(
-      Object.fromEntries(
-        Object.entries(body)
-          .filter(([, v]) => v !== undefined && v !== null)
-          .map(([k, v]) => [k, String(v)])
-      )
-    ).toString();
+    if (opts.json) {
+      // Endpoints whose body contains an array of objects (batch filters) can't
+      // survive form-encoding — String([{…}]) becomes "[object Object]". Send JSON.
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify(body);
+    } else {
+      // Control D API accepts form-encoded bodies for scalar mutations
+      options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      options.body = new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(body)
+            .filter(([, v]) => v !== undefined && v !== null)
+            .map(([k, v]) => [k, String(v)])
+        )
+      ).toString();
+    }
   }
 
   const res = await fetch(`${BASE_URL}${path}`, options);
@@ -111,9 +118,10 @@ export const api = {
       { status }
     ),
 
-  // Batch enable/disable multiple filters (used for filter levels)
+  // Batch enable/disable multiple filters (used for filter levels).
+  // JSON body: the filters array-of-objects can't be form-encoded (verified live).
   batchFilters: (token, profileId, filters) =>
-    request(token, 'PUT', `/profiles/${encodeURIComponent(profileId)}/filters`, { filters }),
+    request(token, 'PUT', `/profiles/${encodeURIComponent(profileId)}/filters`, { filters }, { json: true }),
 
   // Set a profile option (e.g. ai_malware for Malware Strict)
   setOption: (token, profileId, name, payload) =>
