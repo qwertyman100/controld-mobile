@@ -50,9 +50,9 @@ function FilterRow({ filter, onToggle, toggling, onOpenLevels, levelOverride }) 
       {lv.isMultiLevel ? (
         <button
           onClick={() => onOpenLevels(filter)}
-          className={`shrink-0 text-[10px] font-bold px-2.5 py-1.5 rounded-full ${levelDot(levelOverride ?? lv.currentTitle)}`}
+          className={`shrink-0 text-[10px] font-bold px-2.5 py-1.5 rounded-full ${levelDot(levelOverride?.title ?? lv.currentTitle)}`}
         >
-          {levelOverride ?? lv.currentTitle} ›
+          {levelOverride?.title ?? lv.currentTitle} ›
         </button>
       ) : (
         <button
@@ -191,7 +191,9 @@ export default function Filters({ profile }) {
     setSheetFilter(null);
     const id = rawFilter.PK ?? rawFilter.pk ?? rawFilter.id;
     const prevOverride = levelOverrides[id];
-    setLevelOverrides((o) => ({ ...o, [id]: targetTitle })); // optimistic
+    // Store title AND aiValue so both the pill and the reopened sheet reflect
+    // exactly what was set (sheet used to re-derive "current" from stale raw data).
+    setLevelOverrides((o) => ({ ...o, [id]: { title: targetTitle, aiValue } })); // optimistic
     const ops = buildFilterLevelOps(rawFilter, targetTitle, aiValue);
     try {
       await api.batchFilters(token, profileId, ops.filters);
@@ -289,6 +291,8 @@ export default function Filters({ profile }) {
       {sheetFilter && (
         <FilterLevelSheet
           filter={sheetFilter}
+          currentOverride={levelOverrides[sheetFilter.PK ?? sheetFilter.pk ?? sheetFilter.id]?.title}
+          aiOverride={levelOverrides[sheetFilter.PK ?? sheetFilter.pk ?? sheetFilter.id]?.aiValue}
           onChoose={(title, aiValue) => handleSetLevel(sheetFilter, title, aiValue)}
           onClose={() => setSheetFilter(null)}
         />

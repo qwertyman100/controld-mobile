@@ -10,8 +10,12 @@ function dotClass(title) {
   return 'bg-green-500'; // Relaxed and any other first-tier title (e.g. "Last Week")
 }
 
-export default function FilterLevelSheet({ filter, onChoose, onClose }) {
-  const { options, currentTitle, isCumulative, aiValue } = getFilterLevels(filter);
+export default function FilterLevelSheet({ filter, currentOverride, aiOverride, onChoose, onClose }) {
+  const { options, currentTitle: rawCurrent, isCumulative, aiValue: rawAi } = getFilterLevels(filter);
+  // Reflect the optimistic override (what the user just set) so reopening the
+  // sheet shows the correct current level/strength, not the stale raw data.
+  const currentTitle = currentOverride ?? rawCurrent;
+  const aiValue = aiOverride ?? rawAi;
   // Per-mode "what it blocks" text, parsed from the API's `additional` HTML to
   // plain text (no raw-HTML render). Off has no entry — that's fine.
   const descriptions = parseModeDescriptions(filter.additional);
