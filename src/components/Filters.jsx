@@ -3,6 +3,8 @@ import { RefreshCw, AlertCircle, ChevronDown, ChevronRight } from 'lucide-react'
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api, toArray } from '../api/controld';
+import { getFilterLevels, buildFilterLevelOps } from '../lib/filterLevels';
+import FilterLevelSheet from './FilterLevelSheet';
 
 function normaliseFilter(f) {
   return {
@@ -25,42 +27,51 @@ function groupByCategory(filters) {
 }
 
 // ── A single filter row with a toggle switch ──────────────────────────────
-function FilterRow({ filter, onToggle, toggling }) {
+function levelDot(title) {
+  if (title === 'Off') return 'bg-slate-300 text-slate-500';
+  if (title === 'Strict') return 'bg-red-100 text-red-700';
+  if (title === 'Balanced') return 'bg-amber-100 text-amber-700';
+  return 'bg-green-100 text-green-700';
+}
+
+function FilterRow({ filter, onToggle, toggling, onOpenLevels, levelOverride }) {
+  const lv = getFilterLevels(filter._raw || {});
   const enabled = filter.status === 1;
+
   return (
     <div className="flex items-center gap-3 px-4 py-3.5 border-b border-slate-100 dark:border-slate-700/40 last:border-0">
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-tight">
-          {filter.name}
-        </p>
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-200 leading-tight">{filter.name}</p>
         {filter.description ? (
-          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-snug line-clamp-2">
-            {filter.description}
-          </p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5 leading-snug line-clamp-2">{filter.description}</p>
         ) : null}
       </div>
 
-      {/* Toggle */}
-      <button
-        onClick={() => onToggle(filter)}
-        disabled={toggling}
-        aria-label={enabled ? 'Disable filter' : 'Enable filter'}
-        className={`shrink-0 relative w-12 h-6 rounded-full transition-colors duration-200 ${
-          enabled ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'
-        } ${toggling ? 'opacity-50' : ''}`}
-      >
-        <span
-          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
-            enabled ? 'translate-x-[24px]' : 'translate-x-0'
-          }`}
-        />
-      </button>
+      {lv.isMultiLevel ? (
+        <button
+          onClick={() => onOpenLevels(filter)}
+          className={`shrink-0 text-[10px] font-bold px-2.5 py-1.5 rounded-full ${levelDot(levelOverride ?? lv.currentTitle)}`}
+        >
+          {levelOverride ?? lv.currentTitle} ›
+        </button>
+      ) : (
+        <button
+          onClick={() => onToggle(filter)}
+          disabled={toggling}
+          aria-label={enabled ? 'Disable filter' : 'Enable filter'}
+          className={`shrink-0 relative w-12 h-6 rounded-full transition-colors duration-200 ${
+            enabled ? 'bg-green-500' : 'bg-slate-300 dark:bg-slate-600'
+          } ${toggling ? 'opacity-50' : ''}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${enabled ? 'translate-x-[24px]' : 'translate-x-0'}`} />
+        </button>
+      )}
     </div>
   );
 }
 
 // ── Collapsible category section ──────────────────────────────────────────
-function FilterCategory({ name, filters, onToggle, togglingId }) {
+function FilterCategory({ name, filters, onToggle, togglingId, onOpenLevels, levelOverrides }) {
   const [collapsed, setCollapsed] = useState(false);
   const enabledCount = filters.filter((f) => f.status === 1).length;
 
@@ -91,6 +102,8 @@ function FilterCategory({ name, filters, onToggle, togglingId }) {
               filter={f}
               onToggle={onToggle}
               toggling={togglingId === f.id}
+              onOpenLevels={onOpenLevels}
+              levelOverride={levelOverrides[f.id]}
             />
           ))}
         </div>
@@ -123,6 +136,8 @@ export default function Filters({ profile }) {
   const [error, setError] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
   const [tab, setTab] = useState('native'); // 'native' | 'external'
+  const [sheetFilter, setSheetFilter] = useState(null);      // raw filter object being edited
+  const [levelOverrides, setLevelOverrides] = useState({});  // { [filterId]: title } optimistic pill
 
   const load = useCallback(async () => {
     if (!profileId) return;
@@ -169,6 +184,28 @@ export default function Filters({ profile }) {
       toast(err.message, 'error');
     } finally {
       setTogglingId(null);
+    }
+  }
+
+  async function handleSetLevel(rawFilter, targetTitle, aiValue) {
+    setSheetFilter(null);
+    const id = rawFilter.PK ?? rawFilter.pk ?? rawFilter.id;
+    const prevOverride = levelOverrides[id];
+    setLevelOverrides((o) => ({ ...o, [id]: targetTitle })); // optimistic
+    const ops = buildFilterLevelOps(rawFilter, targetTitle, aiValue);
+    try {
+      await api.batchFilters(token, profileId, ops.filters);
+      if (ops.option) {
+        await api.setOption(token, profileId, ops.option.name, {
+          status: ops.option.status,
+          ...(ops.option.value !== undefined ? { value: ops.option.value } : {}),
+        });
+      }
+      toast(`${rawFilter.name} → ${targetTitle}`, 'success');
+      if (navigator.vibrate) navigator.vibrate(20);
+    } catch (err) {
+      setLevelOverrides((o) => ({ ...o, [id]: prevOverride })); // rollback
+      toast(err.message, 'error');
     }
   }
 
@@ -241,11 +278,21 @@ export default function Filters({ profile }) {
                 filters={filters}
                 onToggle={handleToggle}
                 togglingId={togglingId}
+                onOpenLevels={(f) => setSheetFilter(f._raw)}
+                levelOverrides={levelOverrides}
               />
             ))}
           </div>
         )}
       </div>
+
+      {sheetFilter && (
+        <FilterLevelSheet
+          filter={sheetFilter}
+          onChoose={(title, aiValue) => handleSetLevel(sheetFilter, title, aiValue)}
+          onClose={() => setSheetFilter(null)}
+        />
+      )}
     </div>
   );
 }
