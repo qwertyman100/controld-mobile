@@ -39,17 +39,19 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Cache-first for static assets
+  // Network-FIRST for static assets, cache as offline fallback. Cache-first
+  // previously pinned a stale build forever (same URL, old contents) and kept
+  // masking shipped fixes. Online users now always get current code; the cache
+  // is only used when the network is unavailable.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
+    fetch(request)
+      .then((response) => {
         if (response.ok) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
-      });
-    })
+      })
+      .catch(() => caches.match(request))
   );
 });
