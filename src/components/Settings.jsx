@@ -2,6 +2,9 @@ import { Sun, Moon, LogOut, User, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 
+// Injected by Vite (see vite.config define). Guarded so it never throws if absent.
+const BUILD_STAMP = typeof __BUILD_STAMP__ !== 'undefined' ? __BUILD_STAMP__ : 'dev';
+
 export default function Settings() {
   const { user, logout } = useAuth();
   const { isDark, toggle } = useTheme();
@@ -119,6 +122,9 @@ export default function Settings() {
             </p>
             <p className="text-xs text-slate-400 dark:text-slate-500">
               Phase 1 — Personal PWA
+            </p>
+            <p className="text-[10px] font-mono text-slate-400 dark:text-slate-500 mt-1">
+              Build {BUILD_STAMP}
             </p>
           </div>
         </div>
