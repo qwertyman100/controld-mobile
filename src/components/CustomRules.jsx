@@ -10,35 +10,15 @@ import {
   Loader2,
   ToggleLeft,
   ToggleRight,
+  Pencil,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api, toArray, RULE_ACTION, extractDomain } from '../api/controld';
 import { sanitizeSearchQuery } from '../lib/inputPolicy';
-
-// Map numeric "do" value → display label + colour
-// API: 0=BLOCK, 1=BYPASS, 2=SPOOF, 3=REDIRECT
-const ACTION_META = {
-  [RULE_ACTION.BLOCK]:   { label: 'Block',    color: 'text-red-500',   bg: 'bg-red-500/10 border-red-500/25'    },
-  [RULE_ACTION.BYPASS]:  { label: 'Bypass',   color: 'text-green-500', bg: 'bg-green-500/10 border-green-500/25' },
-  [RULE_ACTION.REDIRECT]:{ label: 'Redirect', color: 'text-blue-400',  bg: 'bg-blue-500/10 border-blue-500/25'  },
-};
-
-// Normalise a rule object to a consistent shape regardless of API quirks
-// API shape: { PK, hostname, do, status, group (int), order, via }
-export function normaliseRule(r) {
-  return {
-    // Coerce to string: some API records carry a NUMBER as hostname/PK (the "1688"
-    // class), and an unguarded .toLowerCase() downstream (rules filter) would throw
-    // and white-screen. Guarantee a string here so every consumer is safe.
-    hostname: String(r.hostname ?? r.PK ?? r.pk ?? ''),
-    do: r.do ?? RULE_ACTION.BYPASS,
-    status: r.status ?? 1,
-    group: r.group ?? null,  // integer group PK, null = ungrouped
-    via: r.via ?? null,
-    _raw: r,
-  };
-}
+import { normaliseRule, buildRulePayload, validateSpoofTarget } from '../lib/rules';
+import RuleActionTarget, { ACTION_META } from './RuleActionTarget';
+import RuleEditSheet from './RuleEditSheet';
 
 export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }) {
   const { token } = useAuth();
@@ -61,11 +41,13 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
   const [proxies, setProxies] = useState([]);
   const [proxiesError, setProxiesError] = useState(null);
   const [via, setVia] = useState('');
+  const [viaV6, setViaV6] = useState('');
 
   // ── UI state ──
   const [search, setSearch] = useState('');
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const [deletingHostname, setDeletingHostname] = useState(null);
+  const [editingRule, setEditingRule] = useState(null);
 
   const inputRef = useRef(null);
 
@@ -100,7 +82,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
         setProxies(list);
         if (list.length > 0) {
           const first = list[0];
-          setVia(first.PK ?? first.pk ?? first.id ?? first.name ?? '');
+          setVia(String(first.PK ?? first.pk ?? first.id ?? first.name ?? ''));
         }
       })
       .catch((err) => {
@@ -110,25 +92,41 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
 
   // ── Add rule (used by quick-add AND clipboard banner) ──
   const addRule = useCallback(
-    async (hostname, doAction, viaProxy) => {
+    async (hostname, doAction, viaProxy, viaProxyV6) => {
       const cleaned = extractDomain(hostname) ?? hostname.trim().toLowerCase();
       if (!cleaned) return;
 
+      // The add-bar's Spoof target is free-text (unlike Redirect's proxy dropdown),
+      // so it needs the same validation RuleEditSheet applies before it hits the API.
+      if (doAction === RULE_ACTION.SPOOF) {
+        const v = validateSpoofTarget(viaProxy);
+        if (!v.ok) {
+          toast(v.error, 'error');
+          setAdding(false);
+          return;
+        }
+        if (viaProxyV6) {
+          const v6 = validateSpoofTarget(viaProxyV6, { ipv6: true });
+          if (!v6.ok) {
+            toast(v6.error, 'error');
+            setAdding(false);
+            return;
+          }
+        }
+      }
+
       setAdding(true);
       try {
-        await api.createRule(token, profileId, {
-          'hostnames[]': cleaned,
-          do: doAction,
-          status: 1,
-          ...(doAction === RULE_ACTION.REDIRECT && viaProxy ? { via: viaProxy } : {}),
-        });
+        const payload = buildRulePayload(doAction, { via: viaProxy, viaV6: viaProxyV6 });
+        await api.createRule(token, profileId, { 'hostnames[]': cleaned, ...payload });
         const meta = ACTION_META[doAction] ?? ACTION_META[RULE_ACTION.BYPASS];
         toast(`${meta.label}: ${cleaned}`, 'success');
         if (navigator.vibrate) navigator.vibrate(30);
         setDomain('');
         // Optimistically prepend
         setRules((prev) => [
-          { hostname: cleaned, do: doAction, status: 1, group: null, via: doAction === RULE_ACTION.REDIRECT ? (viaProxy ?? null) : null },
+          { hostname: cleaned, do: doAction, status: 1, group: null,
+            via: payload.via ?? null, via_v6: payload.via_v6 ?? null },
           ...prev.filter((r) => r.hostname !== cleaned),
         ]);
       } catch (err) {
@@ -137,7 +135,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
         setAdding(false);
       }
     },
-    [token, profileId, toast]  // via is passed as arg, not captured
+    [token, profileId, toast]  // via/viaV6 are passed as args, not captured
   );
 
   // ── Clipboard handler (called from App via prop) ──
@@ -174,10 +172,15 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
       )
     );
     try {
+      // Include the existing target so toggling status doesn't drop it if the
+      // API PUT is a full replace rather than a partial patch (defensive — we
+      // don't know the server's merge semantics, so don't rely on them).
       await api.updateRule(token, profileId, {
         hostname: rule.hostname,
         do: rule.do,
         status: newStatus,
+        ...(rule.via ? { via: rule.via } : {}),
+        ...(rule.via_v6 ? { via_v6: rule.via_v6 } : {}),
       });
     } catch (err) {
       // Rollback
@@ -186,6 +189,29 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
           r.hostname === rule.hostname ? { ...r, status: rule.status } : r
         )
       );
+      toast(err.message, 'error');
+    }
+  }
+
+  // ── Save an edited rule (action + target) from the edit sheet ──
+  async function handleEditSave(rule, payload) {
+    setEditingRule(null);
+    // Capture only the fields we're about to change, not the whole array —
+    // rolling back the whole snapshot could clobber a concurrent update
+    // (e.g. a toggle or delete) that landed while this request was in flight.
+    const orig = { do: rule.do, via: rule.via ?? null, via_v6: rule.via_v6 ?? null };
+    setRules((rs) => rs.map((r) => (r.hostname === rule.hostname
+      ? { ...r, do: payload.do, via: payload.via ?? null, via_v6: payload.via_v6 ?? null } : r)));
+    try {
+      // buildRulePayload hardcodes status:1 (create-rule default) — override it
+      // with the rule's current status so editing a disabled rule doesn't
+      // silently re-enable it.
+      await api.updateRule(token, profileId, { hostname: rule.hostname, ...payload, status: rule.status });
+      toast(`Updated ${rule.hostname}`, 'success');
+      if (navigator.vibrate) navigator.vibrate(20);
+    } catch (err) {
+      // Rollback only the edited fields on this one rule
+      setRules((rs) => rs.map((r) => (r.hostname === rule.hostname ? { ...r, ...orig } : r)));
       toast(err.message, 'error');
     }
   }
@@ -236,7 +262,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            addRule(domain, action, via);
+            addRule(domain, action, via, viaV6);
           }}
           className="flex flex-col gap-2"
         >
@@ -257,7 +283,9 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
             />
             <button
               type="submit"
-              disabled={!domain.trim() || adding || (action === RULE_ACTION.REDIRECT && !via)}
+              disabled={!domain.trim() || adding
+                || (action === RULE_ACTION.REDIRECT && !via)
+                || (action === RULE_ACTION.SPOOF && !String(via).trim())}
               className="shrink-0 bg-green-500 hover:bg-green-600 disabled:bg-slate-300 dark:disabled:bg-slate-700 disabled:text-slate-400 text-white rounded-xl px-4 py-3 font-semibold text-sm flex items-center gap-1.5 transition-colors min-w-[76px] justify-center"
             >
               {adding ? (
@@ -271,54 +299,29 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
             </button>
           </div>
 
-          {/* Action selector — Block / Bypass / Redirect */}
-          <div className="flex gap-2">
-            {[RULE_ACTION.BYPASS, RULE_ACTION.BLOCK, RULE_ACTION.REDIRECT].map((val) => {
-              const meta = ACTION_META[val];
-              return (
-                <button
-                  key={val}
-                  type="button"
-                  onClick={() => setAction(val)}
-                  className={`flex-1 py-2 rounded-lg text-xs font-semibold border transition-colors ${
-                    action === val
-                      ? meta.bg + ' ' + meta.color + ' border-current'
-                      : 'bg-transparent border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
-                  }`}
-                >
-                  {meta.label}
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Proxy selector — only shown for Redirect */}
-          {action === RULE_ACTION.REDIRECT && (
-            proxiesError ? (
-              <p className="text-xs text-red-400 px-1">
-                Failed to load proxies: {proxiesError}
-              </p>
-            ) : (
-              <select
-                value={via}
-                onChange={(e) => setVia(e.target.value)}
-                className="w-full bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl px-3.5 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {proxies.length === 0 && (
-                  <option value="">Loading proxies…</option>
-                )}
-                {proxies.map((p) => {
-                  const id = p.PK ?? p.pk ?? p.id ?? p.name ?? '';
-                  const label = p.name ?? p.city ?? p.label ?? id;
-                  const country = p.country ?? p.country_code ?? '';
-                  return (
-                    <option key={id} value={id}>
-                      {country ? `${country} — ${label}` : label}
-                    </option>
-                  );
-                })}
-              </select>
-            )
+          {/* Action selector (Bypass/Block/Redirect/Spoof) + target picker */}
+          <RuleActionTarget
+            action={action}
+            onActionChange={(a) => {
+              setAction(a);
+              // A Redirect proxy id (numeric PK) must never leak into the Spoof
+              // free-text field (or vice versa) when the user switches actions.
+              setViaV6('');
+              if (a === RULE_ACTION.REDIRECT) {
+                const f = proxies[0];
+                setVia(String(f?.PK ?? f?.pk ?? f?.id ?? f?.name ?? ''));
+              } else {
+                setVia('');
+              }
+            }}
+            via={via} onViaChange={setVia}
+            viaV6={viaV6} onViaV6Change={setViaV6}
+            proxies={proxies}
+          />
+          {action === RULE_ACTION.REDIRECT && proxiesError && (
+            <p className="text-xs text-red-400 px-1">
+              Failed to load proxies: {proxiesError}
+            </p>
           )}
         </form>
       </div>
@@ -378,6 +381,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
                 deletingHostname={deletingHostname}
                 onDelete={deleteRule}
                 onToggle={toggleRule}
+                onEdit={setEditingRule}
               />
             )}
 
@@ -420,6 +424,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
                         deletingHostname={deletingHostname}
                         onDelete={deleteRule}
                         onToggle={toggleRule}
+                        onEdit={setEditingRule}
                       />
                     )}
                   </div>
@@ -434,12 +439,22 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
           </div>
         )}
       </div>
+
+      {/* ── Edit sheet ── */}
+      {editingRule && (
+        <RuleEditSheet
+          rule={editingRule}
+          proxies={proxies}
+          onSave={(payload) => handleEditSave(editingRule, payload)}
+          onClose={() => setEditingRule(null)}
+        />
+      )}
     </div>
   );
 }
 
 // ── Rule list group ────────────────────────────────────────────────────────
-function RuleGroup({ rules, deletingHostname, onDelete, onToggle }) {
+function RuleGroup({ rules, deletingHostname, onDelete, onToggle, onEdit }) {
   return (
     <div className="px-3 flex flex-col gap-1">
       {rules.map((rule) => (
@@ -449,6 +464,7 @@ function RuleGroup({ rules, deletingHostname, onDelete, onToggle }) {
           deleting={deletingHostname === rule.hostname}
           onDelete={() => onDelete(rule.hostname)}
           onToggle={() => onToggle(rule)}
+          onEdit={() => onEdit(rule)}
         />
       ))}
     </div>
@@ -456,7 +472,7 @@ function RuleGroup({ rules, deletingHostname, onDelete, onToggle }) {
 }
 
 // ── Single rule row ────────────────────────────────────────────────────────
-function RuleRow({ rule, deleting, onDelete, onToggle }) {
+function RuleRow({ rule, deleting, onDelete, onToggle, onEdit }) {
   const meta = ACTION_META[rule.do] ?? ACTION_META[RULE_ACTION.BYPASS];
   const disabled = rule.status === 0;
 
@@ -478,7 +494,7 @@ function RuleRow({ rule, deleting, onDelete, onToggle }) {
         <span className="block text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
           {rule.hostname}
         </span>
-        {rule.do === RULE_ACTION.REDIRECT && rule.via && (
+        {(rule.do === RULE_ACTION.REDIRECT || rule.do === RULE_ACTION.SPOOF) && rule.via && (
           <span className="block text-xs text-slate-400 dark:text-slate-500 truncate">
             via {rule.via}
           </span>
@@ -496,6 +512,15 @@ function RuleRow({ rule, deleting, onDelete, onToggle }) {
         ) : (
           <ToggleLeft size={22} />
         )}
+      </button>
+
+      {/* Edit */}
+      <button
+        onClick={onEdit}
+        aria-label={`Edit rule for ${rule.hostname}`}
+        className="shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 p-1.5"
+      >
+        <Pencil size={15} />
       </button>
 
       {/* Delete */}
