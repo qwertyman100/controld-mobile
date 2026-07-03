@@ -37,7 +37,7 @@ export default function RuleEditSheet({ rule, proxies, onSave, onClose }) {
           viaV6={viaV6} onViaV6Change={(v) => { setViaV6(v); setError(null); }}
           proxies={proxies}
         />
-        {error ? <p className="text-xs text-red-400 mt-2 px-1">{error}</p> : null}
+        {error ? <p role="alert" className="text-xs text-red-400 mt-2 px-1">{error}</p> : null}
         <button onClick={handleSave} className="w-full mt-4 bg-green-500 hover:bg-green-600 text-white font-semibold rounded-xl py-3 text-sm">
           Save
         </button>

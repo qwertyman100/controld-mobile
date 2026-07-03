@@ -16,7 +16,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api, toArray, RULE_ACTION, extractDomain } from '../api/controld';
 import { sanitizeSearchQuery } from '../lib/inputPolicy';
-import { normaliseRule, buildRulePayload } from '../lib/rules';
+import { normaliseRule, buildRulePayload, validateSpoofTarget } from '../lib/rules';
 import RuleActionTarget, { ACTION_META } from './RuleActionTarget';
 import RuleEditSheet from './RuleEditSheet';
 
@@ -96,6 +96,25 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
       const cleaned = extractDomain(hostname) ?? hostname.trim().toLowerCase();
       if (!cleaned) return;
 
+      // The add-bar's Spoof target is free-text (unlike Redirect's proxy dropdown),
+      // so it needs the same validation RuleEditSheet applies before it hits the API.
+      if (doAction === RULE_ACTION.SPOOF) {
+        const v = validateSpoofTarget(viaProxy);
+        if (!v.ok) {
+          toast(v.error, 'error');
+          setAdding(false);
+          return;
+        }
+        if (viaProxyV6) {
+          const v6 = validateSpoofTarget(viaProxyV6, { ipv6: true });
+          if (!v6.ok) {
+            toast(v6.error, 'error');
+            setAdding(false);
+            return;
+          }
+        }
+      }
+
       setAdding(true);
       try {
         const payload = buildRulePayload(doAction, { via: viaProxy, viaV6: viaProxyV6 });
@@ -153,10 +172,15 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
       )
     );
     try {
+      // Include the existing target so toggling status doesn't drop it if the
+      // API PUT is a full replace rather than a partial patch (defensive — we
+      // don't know the server's merge semantics, so don't rely on them).
       await api.updateRule(token, profileId, {
         hostname: rule.hostname,
         do: rule.do,
         status: newStatus,
+        ...(rule.via ? { via: rule.via } : {}),
+        ...(rule.via_v6 ? { via_v6: rule.via_v6 } : {}),
       });
     } catch (err) {
       // Rollback
@@ -179,7 +203,10 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
     setRules((rs) => rs.map((r) => (r.hostname === rule.hostname
       ? { ...r, do: payload.do, via: payload.via ?? null, via_v6: payload.via_v6 ?? null } : r)));
     try {
-      await api.updateRule(token, profileId, { hostname: rule.hostname, ...payload });
+      // buildRulePayload hardcodes status:1 (create-rule default) — override it
+      // with the rule's current status so editing a disabled rule doesn't
+      // silently re-enable it.
+      await api.updateRule(token, profileId, { hostname: rule.hostname, ...payload, status: rule.status });
       toast(`Updated ${rule.hostname}`, 'success');
       if (navigator.vibrate) navigator.vibrate(20);
     } catch (err) {
@@ -275,7 +302,18 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
           {/* Action selector (Bypass/Block/Redirect/Spoof) + target picker */}
           <RuleActionTarget
             action={action}
-            onActionChange={setAction}
+            onActionChange={(a) => {
+              setAction(a);
+              // A Redirect proxy id (numeric PK) must never leak into the Spoof
+              // free-text field (or vice versa) when the user switches actions.
+              setViaV6('');
+              if (a === RULE_ACTION.REDIRECT) {
+                const f = proxies[0];
+                setVia(String(f?.PK ?? f?.pk ?? f?.id ?? f?.name ?? ''));
+              } else {
+                setVia('');
+              }
+            }}
             via={via} onViaChange={setVia}
             viaV6={viaV6} onViaV6Change={setViaV6}
             proxies={proxies}
@@ -456,7 +494,7 @@ function RuleRow({ rule, deleting, onDelete, onToggle, onEdit }) {
         <span className="block text-sm font-medium text-slate-800 dark:text-slate-200 truncate">
           {rule.hostname}
         </span>
-        {rule.do === RULE_ACTION.REDIRECT && rule.via && (
+        {(rule.do === RULE_ACTION.REDIRECT || rule.do === RULE_ACTION.SPOOF) && rule.via && (
           <span className="block text-xs text-slate-400 dark:text-slate-500 truncate">
             via {rule.via}
           </span>
