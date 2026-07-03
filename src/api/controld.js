@@ -88,7 +88,9 @@ export const api = {
   createRule: (token, profileId, payload) =>
     request(token, 'POST', `/profiles/${encodeURIComponent(profileId)}/rules`, payload),
 
-  // PUT requires hostname in the body to identify which rule to update
+  // PUT requires the target in the body as hostnames[] (array), same as POST —
+  // a singular `hostname` is rejected with 400 code 40003. Callers pass the
+  // literal 'hostnames[]' key so the form-encoder emits hostnames[]=<domain>.
   updateRule: (token, profileId, payload) =>
     request(token, 'PUT', `/profiles/${encodeURIComponent(profileId)}/rules`, payload),
 

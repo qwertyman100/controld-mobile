@@ -175,8 +175,12 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
       // Include the existing target so toggling status doesn't drop it if the
       // API PUT is a full replace rather than a partial patch (defensive — we
       // don't know the server's merge semantics, so don't rely on them).
+      // ControlD's PUT /rules identifies the target with hostnames[] (array),
+      // exactly like POST — a singular `hostname` is silently rejected with
+      // 400 code 40003 "Hostaname(s) was not supplied" (confirmed live). Use
+      // the literal 'hostnames[]' key so the form-encoder emits hostnames[]=…
       await api.updateRule(token, profileId, {
-        hostname: rule.hostname,
+        'hostnames[]': rule.hostname,
         do: rule.do,
         status: newStatus,
         ...(rule.via ? { via: rule.via } : {}),
@@ -206,7 +210,9 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
       // buildRulePayload hardcodes status:1 (create-rule default) — override it
       // with the rule's current status so editing a disabled rule doesn't
       // silently re-enable it.
-      await api.updateRule(token, profileId, { hostname: rule.hostname, ...payload, status: rule.status });
+      // Identify the rule with hostnames[] (array), not singular `hostname` —
+      // ControlD's PUT rejects the latter with 400 code 40003 (confirmed live).
+      await api.updateRule(token, profileId, { 'hostnames[]': rule.hostname, ...payload, status: rule.status });
       toast(`Updated ${rule.hostname}`, 'success');
       if (navigator.vibrate) navigator.vibrate(20);
     } catch (err) {

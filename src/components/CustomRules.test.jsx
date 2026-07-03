@@ -66,6 +66,34 @@ describe('CustomRules', () => {
     await waitFor(() => expect(updateRule).toHaveBeenCalled());
     const [, , body] = updateRule.mock.calls[0];
     expect(body.status).toBe(0);
+    // Regression for the live-caught 400 (code 40003 "Hostaname(s) was not
+    // supplied"): ControlD's PUT /rules identifies the target with hostnames[]
+    // (array), exactly like POST — NOT a singular `hostname`. Sending `hostname`
+    // is silently rejected. The body must carry the 'hostnames[]' key.
+    expect(body['hostnames[]']).toBe('blocked.example');
+    expect(body.hostname).toBeUndefined();
+  });
+
+  // Regression for the same live-caught 400 on the OTHER updateRule caller:
+  // toggling a rule's status also went through singular `hostname` and 400'd
+  // (silently, masked by the optimistic-UI rollback). Toggle must use hostnames[].
+  it('toggles a rule using the hostnames[] identifier (not singular hostname)', async () => {
+    render(
+      <ToastProvider>
+        <AuthProvider>
+          <CustomRules profile={{ PK: 'p1', name: 'Test' }} />
+        </AuthProvider>
+      </ToastProvider>
+    );
+
+    // blocked.example is seeded disabled (status:0), so its row toggle re-enables it.
+    const toggleBtn = await screen.findByRole('button', { name: /Enable rule|Disable rule/ });
+    fireEvent.click(toggleBtn);
+
+    await waitFor(() => expect(updateRule).toHaveBeenCalled());
+    const [, , body] = updateRule.mock.calls[0];
+    expect(body['hostnames[]']).toBe('blocked.example');
+    expect(body.hostname).toBeUndefined();
   });
 
   // Regression for Fix 2: the add-bar's Spoof target is free text, but addRule
