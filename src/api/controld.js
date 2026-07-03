@@ -75,7 +75,7 @@ export const api = {
     request(
       token,
       'GET',
-      `/profiles/${profileId}/rules${folderId ? `/${folderId}` : ''}`
+      `/profiles/${profileId}/rules${folderId ? `/${encodeURIComponent(folderId)}` : ''}`
     ),
 
   createRule: (token, profileId, payload) =>
@@ -107,7 +107,7 @@ export const api = {
     request(
       token,
       'PUT',
-      `/profiles/${profileId}/filters/filter/${filterId}`,
+      `/profiles/${profileId}/filters/filter/${encodeURIComponent(filterId)}`,
       { status }
     ),
 
@@ -122,7 +122,7 @@ export const api = {
     request(
       token,
       'PUT',
-      `/profiles/${profileId}/services/${serviceId}`,
+      `/profiles/${profileId}/services/${encodeURIComponent(serviceId)}`,
       payload
     ),
 
@@ -130,7 +130,7 @@ export const api = {
   getServiceCategories: (token) => request(token, 'GET', '/services/categories'),
 
   getServiceCategory: (token, category) =>
-    request(token, 'GET', `/services/categories/${category}`),
+    request(token, 'GET', `/services/categories/${encodeURIComponent(category)}`),
 
   // Devices (Phase 2)
   getDevices: (token) => request(token, 'GET', '/devices'),

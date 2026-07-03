@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api, toArray } from '../api/controld';
 import { mergeServiceState, filterServices, buildServicePayload } from '../lib/services';
+import { sanitizeSearchQuery } from '../lib/inputPolicy';
 import ServiceActionSheet from './ServiceActionSheet';
 
 const PILL = {
@@ -182,7 +183,8 @@ export default function Services({ profile }) {
           <Search size={15} className="text-slate-400" />
           <input
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => setQuery(sanitizeSearchQuery(e.target.value))}
+            maxLength={128}
             placeholder="Search apps…"
             className="flex-1 bg-transparent text-sm outline-none"
           />

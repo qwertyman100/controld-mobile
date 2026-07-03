@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { X, MapPin } from 'lucide-react';
 import { resolveDefaultLocation } from '../lib/services';
+import { sanitizeSearchQuery } from '../lib/inputPolicy';
 
 const ACTIONS = [
   { key: 'block', label: 'Block', cls: 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-400' },
@@ -46,7 +47,8 @@ export default function ServiceActionSheet({ service, proxies, onChoose, onClose
             <input
               autoFocus
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => setQ(sanitizeSearchQuery(e.target.value))}
+              maxLength={64}
               placeholder="Search locations…"
               className="w-full mb-2 px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-transparent text-sm"
             />

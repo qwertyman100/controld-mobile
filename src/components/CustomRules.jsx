@@ -14,6 +14,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { api, toArray, RULE_ACTION, extractDomain } from '../api/controld';
+import { sanitizeSearchQuery } from '../lib/inputPolicy';
 
 // Map numeric "do" value → display label + colour
 // API: 0=BLOCK, 1=BYPASS, 2=SPOOF, 3=REDIRECT
@@ -247,6 +248,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="none"
+              maxLength={253}
               spellCheck={false}
               className="flex-1 bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white rounded-xl px-3.5 py-3 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 min-w-0"
             />
@@ -325,7 +327,8 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
           <input
             type="search"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => setSearch(sanitizeSearchQuery(e.target.value))}
+            maxLength={128}
             placeholder={`Search ${rules.length} rules…`}
             className="w-full bg-white dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700/50 rounded-xl pl-9 pr-3 py-2.5 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500"
           />

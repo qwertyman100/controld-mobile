@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { api } from '../api/controld';
+import { validateToken } from '../lib/inputPolicy';
 
 const AuthContext = createContext(null);
 
@@ -19,11 +20,19 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (apiToken) => {
     setAuthError(null);
+    // Validate against the allowlist policy BEFORE the token touches the network:
+    // reject malformed / injection-shaped input loudly, then use the trimmed,
+    // validated value everywhere after.
+    const check = validateToken(apiToken);
+    if (!check.ok) {
+      setAuthError(check.error);
+      return false;
+    }
     try {
-      const body = await api.getUser(apiToken.trim());
+      const body = await api.getUser(check.value);
       const userData = body?.user ?? body;
-      localStorage.setItem('cd_token', apiToken.trim());
-      setToken(apiToken.trim());
+      localStorage.setItem('cd_token', check.value);
+      setToken(check.value);
       setUser(userData);
       return true;
     } catch (err) {

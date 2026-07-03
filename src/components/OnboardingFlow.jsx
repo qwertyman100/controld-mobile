@@ -329,6 +329,7 @@ function StepEnterToken({ onBack, showBack }) {
             type={showToken ? 'text' : 'password'}
             value={token}
             onChange={(e) => setToken(e.target.value)}
+            maxLength={256}
             placeholder="Paste your API token here"
             autoComplete="off"
             autoCorrect="off"
