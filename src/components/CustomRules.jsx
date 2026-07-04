@@ -19,6 +19,7 @@ import { sanitizeSearchQuery } from '../lib/inputPolicy';
 import { normaliseRule, buildRulePayload, validateSpoofTarget } from '../lib/rules';
 import RuleActionTarget, { ACTION_META } from './RuleActionTarget';
 import RuleEditSheet from './RuleEditSheet';
+import DefaultRuleBanner from './DefaultRuleBanner';
 
 export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }) {
   const { token } = useAuth();
@@ -263,6 +264,11 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
 
   return (
     <div className="flex flex-col h-full">
+      {/* ── Default rule (catch-all) banner ── */}
+      <div className="shrink-0 px-3 pt-3">
+        <DefaultRuleBanner profile={profile} />
+      </div>
+
       {/* ── Quick-Add Bar — always visible at top ── */}
       <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3">
         <form
