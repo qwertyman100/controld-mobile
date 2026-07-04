@@ -6,7 +6,10 @@ import { useToast } from '../context/ToastContext';
 import { DEFAULT_ACTIONS, normaliseDefaultAction } from '../lib/defaultRule';
 import DefaultRuleSheet from './DefaultRuleSheet';
 
-export default function DefaultRuleBanner({ profile }) {
+// `proxies` is passed in by CustomRules (which already loads it for the redirect
+// add-bar) so we don't fire a second identical GET /proxies when the Rules screen
+// opens. Defaults to [] so the banner still renders standalone.
+export default function DefaultRuleBanner({ profile, proxies = [] }) {
   const { token } = useAuth();
   const toast = useToast();
   const profileId = profile?.PK ?? profile?.pk ?? profile?.id;
@@ -14,7 +17,6 @@ export default function DefaultRuleBanner({ profile }) {
   // Seed instantly from the selected profile's cached da (no flash), then
   // refresh from the server so the banner shows the authoritative default.
   const [da, setDa] = useState(() => normaliseDefaultAction(profile?.profile?.da));
-  const [proxies, setProxies] = useState([]);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -27,13 +29,6 @@ export default function DefaultRuleBanner({ profile }) {
       })
       .catch(() => {}); // keep the seeded value on failure
   }, [token, profileId]);
-
-  useEffect(() => {
-    if (!token) return;
-    api.getProxies(token)
-      .then((body) => setProxies(toArray(body, 'proxies')))
-      .catch(() => {});
-  }, [token]);
 
   const handleSave = useCallback(async (payload) => {
     setOpen(false);
@@ -60,7 +55,8 @@ export default function DefaultRuleBanner({ profile }) {
           <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">When nothing matches</div>
           <div className={`text-sm font-semibold mt-0.5 ${meta.color}`}>{meta.label}</div>
         </div>
-        <ChevronRight size={16} className="text-slate-400" />
+        <span className="text-xs font-medium text-slate-400 shrink-0">Change</span>
+        <ChevronRight size={16} className="text-slate-400 -ml-1" />
       </button>
       {open && (
         <DefaultRuleSheet da={da} proxies={proxies} onSave={handleSave} onClose={() => setOpen(false)} />

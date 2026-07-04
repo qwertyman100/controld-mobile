@@ -266,7 +266,7 @@ export default function CustomRules({ profile, clipboardDomain, onClipboardAdd }
     <div className="flex flex-col h-full">
       {/* ── Default rule (catch-all) banner ── */}
       <div className="shrink-0 px-3 pt-3">
-        <DefaultRuleBanner profile={profile} />
+        <DefaultRuleBanner profile={profile} proxies={proxies} />
       </div>
 
       {/* ── Quick-Add Bar — always visible at top ── */}
