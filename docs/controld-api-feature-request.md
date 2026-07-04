@@ -1,49 +1,53 @@
-# Feature request / API gap: expose the Activity Log (`/queries`) to API tokens
+# ControlD feature request — paste-ready
 
-**To:** ControlD support / API team
-**From:** API user (account `controld.67jmp@passmail.com`)
-**Type:** API feature request (with a likely permissions bug)
+**Where to submit (pick one, you'll need to be logged in):**
+- **feedback.controld.com** — the feature-request board (recommended; gets upvotes/visibility)
+- docs.controld.com/discuss — community "Discussions" board (Feature Request category)
+- controld.com/contact-support — email/ticket (fallback)
 
-## Summary
+Paste the **Title** into the title field and the **Body** into the description.
 
-The REST API tokens (both **Read-only** and **Read/Write**) cannot access the query-log /
-activity endpoints. This blocks any API-driven tooling that wants to surface DNS activity —
-for example, a self-hosted mobile client that lets a user review what a device is doing and
-act on it.
+---
 
-## What I observed
+## Title
 
-Using standard API tokens against `https://api.controld.com`:
+Expose the Activity Log (`/queries`) to API tokens (scoped permission)
+
+## Body
+
+**Summary:** The REST API tokens — both **Read-only** and **Read/Write** — can't access the
+query-log / activity endpoints. This blocks any API-driven tooling that wants to surface DNS
+activity and act on it (e.g. a self-hosted mobile client). Please expose the activity log to a
+scoped API-token permission.
+
+**What I observed** (standard API tokens against `https://api.controld.com`):
 
 | Endpoint | Read-only token | Read/Write token |
-|----------|-----------------|------------------|
+|---|---|---|
 | `GET /queries` | `403 "This read-only token does not have access to this endpoint"` | `403 "This token does not have access to this endpoint"` |
 | `GET /analytics`, `/analytics/records` | `404 Not implemented` | — |
 | `GET /devices` | ✅ works | ✅ works |
 
-So `/queries` clearly exists (it returns 403, not 404), but **no API token — not even Read/Write —
-can reach it**. It appears gated behind the web-dashboard session only. Device objects (`GET /devices`)
-also don't carry query counts — the `stats` field is a single scalar, not activity data.
+So `/queries` clearly exists (403, not 404), but **no API token — not even Read/Write — can
+reach it**; it appears to be dashboard-session-only. Device objects (`GET /devices`) also don't
+carry query counts (the `stats` field is a single scalar, not activity data).
 
-## Why it matters (use case)
+**Why it matters (use case):** I'm building a small personal PWA to manage my ControlD account
+from my phone. A high-value workflow is the **default-deny allowlist**: set a profile's Default
+Rule to **Block**, then allow only the domains a device legitimately needs. Doing that safely
+means *observing* what a device queries (and what got blocked), then promoting the legitimate
+domains to Bypass rules — a "review the activity log → one-tap allow" loop. That's impossible
+through the API today because the activity log isn't reachable with an API token.
 
-I'm building a small personal PWA to manage my ControlD account from my phone. A high-value
-workflow is the **default-deny allowlist**: set a profile's Default Rule to **Block**, then
-allow only the domains a device legitimately needs. To do that safely you have to *observe*
-what the device queries (and what got blocked), then promote the legitimate domains to Bypass
-rules. That "review the activity log → one-tap allow" loop is impossible through the API today,
-because the activity log isn't reachable with an API token.
+**The ask:**
+1. **Expose read access to the Activity Log via API tokens**, ideally under a scoped capability
+   (e.g. `logs:read`) so it can be granted deliberately. Even letting the Read/Write token
+   `GET /queries` would unblock this.
+2. **Document the `/queries` request/response shape** — filters (by device/endpoint, time range,
+   verdict = blocked/allowed/redirected) and pagination.
+3. If it's intended to stay dashboard-only, please return a **clearer error** (e.g. "activity log
+   is not available to API tokens") and note it in the API reference so integrators don't read
+   the 403 as a bug.
 
-## The ask
-
-1. **Expose read access to the Activity Log via API tokens** — ideally under a scoped permission
-   (e.g. a token capability like `logs:read`) so it can be granted deliberately. Even the
-   Read/Write token being able to `GET /queries` would unblock this.
-2. Document the `/queries` request/response shape (filters: by device/endpoint, time range,
-   verdict = blocked/allowed/redirected; pagination).
-3. If this is intended to stay dashboard-only, please **return a clearer error** (e.g. 403 with
-   "activity log is not available to API tokens") and note it in the API reference, so integrators
-   don't assume it's a bug.
-
-Thanks — the API is otherwise excellent to work with; this is the one gap stopping a genuinely
-useful workflow.
+Thanks — the API is otherwise great to work with; this is the one gap stopping a genuinely useful
+workflow.
