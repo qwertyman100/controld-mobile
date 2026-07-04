@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, AlertCircle, Loader2, ChevronRight } from 'lucide-react';
+import { RefreshCw, AlertCircle, ChevronRight } from 'lucide-react';
 import { api, toArray } from '../api/controld';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
