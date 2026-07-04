@@ -1,4 +1,4 @@
-import { Sun, Moon, ChevronLeft } from 'lucide-react';
+import { Sun, Moon, ChevronLeft, Settings as SettingsIcon } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import BottomNav from './BottomNav';
 
@@ -13,6 +13,7 @@ export default function Layout({
   onBack,
   page,
   onNavigate,
+  onOpenSettings,
   children,
   banner,         // ClipboardBanner node
 }) {
@@ -50,9 +51,8 @@ export default function Layout({
             )}
           </div>
 
-          {/* Right controls — Settings lives in the bottom nav, so no gear here
-              (a header gear reads as a drill-in with a back button, but the exit
-              is the nav; removing it kills that dead-end confusion). */}
+          {/* Right controls: theme toggle always; Settings gear on every page
+              except Settings itself (there the left back-arrow is the exit). */}
           <div className="flex items-center gap-1">
             <button
               onClick={toggle}
@@ -61,6 +61,15 @@ export default function Layout({
             >
               {isDark ? <Sun size={20} /> : <Moon size={20} />}
             </button>
+            {page !== 'settings' && onOpenSettings && (
+              <button
+                onClick={onOpenSettings}
+                className="p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                aria-label="Settings"
+              >
+                <SettingsIcon size={20} />
+              </button>
+            )}
           </div>
         </div>
       </header>

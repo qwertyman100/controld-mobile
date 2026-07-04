@@ -172,6 +172,11 @@ export const api = {
 
   // Devices (Phase 2)
   getDevices: (token) => request(token, 'GET', '/devices'),
+
+  // Reassign a device's profile(s). PUT /devices/{id} is a PARTIAL, form-encoded
+  // update: profile_id (primary), profile_id2 (chain, or '-1' to remove). Verified live.
+  updateDevice: (token, deviceId, payload) =>
+    request(token, 'PUT', `/devices/${encodeURIComponent(deviceId)}`, payload),
 };
 
 // ---------------------------------------------------------------------------

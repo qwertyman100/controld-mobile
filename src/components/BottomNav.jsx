@@ -1,11 +1,11 @@
-import { LayoutGrid, List, Shield, Blocks, Settings } from 'lucide-react';
+import { LayoutGrid, List, Shield, Blocks, MonitorSmartphone } from 'lucide-react';
 
 const TABS = [
   { id: 'profiles', label: 'Profiles', Icon: LayoutGrid },
   { id: 'rules',    label: 'Rules',    Icon: List },
   { id: 'filters',  label: 'Filters',  Icon: Shield },
   { id: 'services', label: 'Services', Icon: Blocks },
-  { id: 'settings', label: 'Settings', Icon: Settings },
+  { id: 'devices',  label: 'Devices',  Icon: MonitorSmartphone },
 ];
 
 export default function BottomNav({ current, onNavigate }) {
