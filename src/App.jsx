@@ -10,6 +10,7 @@ import ProfileList from './components/ProfileList';
 import CustomRules from './components/CustomRules';
 import Filters from './components/Filters';
 import Services from './components/Services';
+import DeviceList from './components/DeviceList';
 import Settings from './components/Settings';
 import ErrorBoundary from './components/ErrorBoundary';
 import { useToast } from './context/ToastContext';
@@ -49,6 +50,14 @@ export default function App() {
   const [page, setPage] = useState('profiles');
   const [activeProfile, setActiveProfile] = useState(loadSavedProfile);
 
+  // Remember which page opened Settings so the back-arrow returns there.
+  const [settingsOrigin, setSettingsOrigin] = useState('profiles');
+  const openSettings = useCallback(() => {
+    setSettingsOrigin((prev) => (page === 'settings' ? prev : page));
+    setPage('settings');
+  }, [page]);
+  const closeSettings = useCallback(() => setPage(settingsOrigin), [settingsOrigin]);
+
   // Ref to CustomRules' addRule function — lets us trigger a rule add from
   // the clipboard banner without prop-drilling deeply
   const addRuleRef = useRef(null);
@@ -86,6 +95,7 @@ export default function App() {
     rules: profileName ?? 'Rules',
     filters: 'Filters',
     services: 'Services',
+    devices: 'Devices',
     settings: 'Settings',
   }[page];
 
@@ -117,6 +127,9 @@ export default function App() {
       subtitle={pageSubtitle}
       page={page}
       onNavigate={setPage}
+      onOpenSettings={openSettings}
+      showBack={page === 'settings'}
+      onBack={closeSettings}
       banner={banner}
     >
       {/* Keyed by page so navigating to another tab remounts the boundary and
@@ -140,6 +153,8 @@ export default function App() {
         {page === 'filters' && <Filters profile={activeProfile} />}
 
         {page === 'services' && <Services profile={activeProfile} />}
+
+        {page === 'devices' && <DeviceList />}
 
         {page === 'settings' && <Settings />}
       </ErrorBoundary>
