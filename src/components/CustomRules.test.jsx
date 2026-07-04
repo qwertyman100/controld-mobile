@@ -28,6 +28,11 @@ vi.mock('../api/controld', async (orig) => {
       getGroups: async () => ({ groups: [] }),
       getProxies: async () => ({ proxies: [{ PK: 1234, name: 'Test Loc' }] }), // numeric PK — the crash trigger
       getUser: async () => ({}),
+      // CustomRules now renders <DefaultRuleBanner>, which calls these on mount
+      // (guarded by a truthy token). Stub them so a future test that seeds
+      // cd_token can't trip over `api.getProfiles is not a function` in an effect.
+      getProfiles: async () => ({ profiles: [] }),
+      setDefaultRule: async () => ({}),
       updateRule,
       createRule,
     },

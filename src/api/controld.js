@@ -134,6 +134,12 @@ export const api = {
       payload
     ),
 
+  // Default rule (catch-all "da"). Undocumented endpoint, verified live:
+  // PUT /profiles/{id}/default with form { do, status, via? }. Redirect (do:3)
+  // requires a via (location PK); do:3 with no via is rejected 400.
+  setDefaultRule: (token, profileId, payload) =>
+    request(token, 'PUT', `/profiles/${encodeURIComponent(profileId)}/default`, payload),
+
   // Proxies (for redirect rules)
   getProxies: (token) => request(token, 'GET', '/proxies'),
 
