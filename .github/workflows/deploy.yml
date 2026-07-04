@@ -1,0 +1,45 @@
+name: Deploy to Cloudflare Pages
+
+# Auto-deploy the PWA to Cloudflare Pages (project: controld-mobile) on every
+# push to master. Replaces Cloudflare's native Git integration (which now only
+# offers the Workers Builds flow). Keeps the existing controld-mobile.pages.dev
+# URL. Requires two repo secrets: CLOUDFLARE_API_TOKEN (Pages:Edit on the
+# rifraf1 account) and CLOUDFLARE_ACCOUNT_ID.
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Gate: don't ship a broken build to the phone. All tests must pass.
+      - run: npm test
+
+      # Prod build. VITE_API_BASE_URL points the app at the CORS-proxy Worker
+      # (baked in at build time by Vite). Not a secret — it's a public URL.
+      - run: npm run build
+        env:
+          VITE_API_BASE_URL: https://controld-proxy.rifraf1.workers.dev
+
+      # Deploy dist/ to the production branch (main) so it lands on the live
+      # controld-mobile.pages.dev alias, not a preview.
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=controld-mobile --branch=main
