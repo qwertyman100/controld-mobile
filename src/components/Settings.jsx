@@ -1,6 +1,8 @@
-import { Sun, Moon, LogOut, User, Info } from 'lucide-react';
+import { useState } from 'react';
+import { Sun, Moon, LogOut, User, Info, QrCode, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import ShareDeviceSheet from './ShareDeviceSheet';
 
 // Injected by Vite (see vite.config define). Guarded so it never throws if absent.
 const BUILD_STAMP = typeof __BUILD_STAMP__ !== 'undefined' ? __BUILD_STAMP__ : 'dev';
@@ -8,6 +10,7 @@ const BUILD_STAMP = typeof __BUILD_STAMP__ !== 'undefined' ? __BUILD_STAMP__ : '
 export default function Settings() {
   const { user, logout } = useAuth();
   const { isDark, toggle } = useTheme();
+  const [shareOpen, setShareOpen] = useState(false);
 
   // GET /users returns: { last_active, proxy_access, email_status }
   // No email/username in the response — show connected status instead
@@ -130,6 +133,21 @@ export default function Settings() {
         </div>
       </section>
 
+      {/* Add another device */}
+      <button
+        onClick={() => setShareOpen(true)}
+        className="w-full flex items-center gap-3 bg-white dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/50 px-4 py-4 text-left"
+      >
+        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-700 flex items-center justify-center shrink-0">
+          <QrCode size={20} className="text-slate-500 dark:text-slate-300" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-medium text-sm text-slate-800 dark:text-slate-200">Add another device</p>
+          <p className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Share the app with a QR code</p>
+        </div>
+        <ChevronRight size={18} className="text-slate-400 shrink-0" />
+      </button>
+
       {/* Logout */}
       <button
         onClick={logout}
@@ -138,6 +156,8 @@ export default function Settings() {
         <LogOut size={18} />
         Disconnect
       </button>
+
+      {shareOpen && <ShareDeviceSheet onClose={() => setShareOpen(false)} />}
     </div>
   );
 }
