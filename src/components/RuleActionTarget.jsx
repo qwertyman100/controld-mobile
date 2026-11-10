@@ -64,6 +64,7 @@ export default function RuleActionTarget({
           <input
             value={via ?? ''}
             onChange={(e) => onViaChange(e.target.value)}
+            /* hardcode-ok-next: a generic example address in hint text, not one of our hosts */
             placeholder="Answer with: IPv4 or hostname (e.g. 100.64.1.5)"
             autoComplete="off" autoCorrect="off" autoCapitalize="none" spellCheck={false}
             maxLength={253}
